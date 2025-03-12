@@ -1,0 +1,19 @@
+{
+    "name": "r3f-esm-prototype",
+    "version": "1.0.0",
+    "description": "Prototype for using ThreeJS with R3F via ESM imports",
+    "type": "module",
+    "main": "server.js",
+    "scripts": {
+        "start": "node server.js"
+    },
+    "keywords": [
+        "three.js",
+        "react",
+        "r3f",
+        "esm",
+        "prototype"
+    ],
+    "author": "",
+    "license": "MIT"
+}
