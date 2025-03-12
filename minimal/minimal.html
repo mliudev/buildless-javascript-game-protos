@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minimal R3F Example with ESM.sh</title>
+    <title>Minimal R3F Example with ESM.sh and HTM</title>
     <style>
         body { margin: 0; overflow: hidden; }
         #info { position: absolute; top: 10px; left: 10px; color: white; }
@@ -11,7 +11,7 @@
 </head>
 <body>
     <div id="root"></div>
-    <div id="info">Minimal R3F Example with ESM.sh</div>
+    <div id="info">Minimal R3F Example with ESM.sh and HTM</div>
 
     <script type="module">
         // Import dependencies from esm.sh with specific versions
@@ -19,8 +19,12 @@
         import * as ReactDOMClient from 'https://esm.sh/react-dom@18.2.0/client';
         import * as THREE from 'https://esm.sh/three@0.149.0';
         import { Canvas, useFrame } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0';
+        import htm from 'https://esm.sh/htm@3.1.1';
 
-        // Box component
+        // Initialize htm with React.createElement
+        const html = htm.bind(React.createElement);
+
+        // Box component using htm
         function Box(props) {
             // This reference will give us direct access to the mesh
             const meshRef = useRef();
@@ -33,31 +37,31 @@
                 }
             });
 
-            return React.createElement(
-                'mesh',
-                { ...props, ref: meshRef },
-                React.createElement('boxGeometry', { args: [1, 1, 1] }),
-                React.createElement('meshStandardMaterial', { color: 'hotpink' })
-            );
+            return html`
+                <mesh ref=${meshRef} position=${props.position || [0, 0, 0]}>
+                    <boxGeometry args=${[1, 1, 1]} />
+                    <meshStandardMaterial color=${props.color || 'hotpink'} />
+                </mesh>
+            `;
         }
 
-        // App component
+        // App component using htm
         function App() {
-            return React.createElement(
-                Canvas,
-                {
-                    camera: { position: [0, 0, 5] },
-                    style: { width: '100vw', height: '100vh' }
-                },
-                React.createElement('ambientLight', { intensity: 0.5 }),
-                React.createElement('pointLight', { position: [10, 10, 10] }),
-                React.createElement(Box, { position: [0, 0, 0] })
-            );
+            return html`
+                <${Canvas}
+                    camera=${{ position: [0, 0, 5] }}
+                    style=${{ width: '100vw', height: '100vh' }}
+                >
+                    <ambientLight intensity=${0.5} />
+                    <pointLight position=${[10, 10, 10]} />
+                    <${Box} position=${[0, 0, 0]} color="hotpink" />
+                </${Canvas}>
+            `;
         }
 
         // Create root and render
         const root = ReactDOMClient.createRoot(document.getElementById('root'));
-        root.render(React.createElement(App));
+        root.render(html`<${App} />`);
     </script>
 </body>
 </html>
