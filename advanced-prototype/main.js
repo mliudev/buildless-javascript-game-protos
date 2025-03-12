@@ -1,31 +1,33 @@
-import React, { useRef, useState } from 'https://esm.sh/react@18.2.0';
+import React, { useState } from 'https://esm.sh/react@18.2.0';
 import * as ReactDOMClient from 'https://esm.sh/react-dom@18.2.0/client';
-import * as THREE from 'https://esm.sh/three@0.149.0';
-import { Canvas, useFrame } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0';
+import { Canvas } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0';
+import { Physics, usePlane, useBox } from 'https://esm.sh/@react-three/cannon@6.5.2?deps=react@18.2.0,three@0.149.0,@react-three/fiber@8.13.0';
 import htm from 'https://esm.sh/htm@3.1.1';
 
 // Initialize htm with React.createElement
 const html = htm.bind(React.createElement);
 
-// Box component using HTM (should work)
-function Box(props) {
-  const meshRef = useRef();
+// Box component with physics
+function PhysicsBox(props) {
+  const [ref, api] = useBox(() => ({
+    mass: 1,
+    position: props.position,
+    args: [1, 1, 1]
+  }));
+
   const [hovered, setHover] = useState(false);
   const [active, setActive] = useState(false);
 
-  useFrame((state, delta) => {
-    if (meshRef.current) {
-      meshRef.current.rotation.x += delta * 0.5;
-      meshRef.current.rotation.y += delta * 0.5;
-    }
-  });
+  const handleClick = () => {
+    setActive(!active);
+    api.applyImpulse([0, 5, 0], [0, 0, 0]);
+  };
 
   return html`
     <mesh
-      ref=${meshRef}
-      position=${props.position}
+      ref=${ref}
       scale=${active ? 1.5 : 1}
-      onClick=${() => setActive(!active)}
+      onClick=${handleClick}
       onPointerOver=${() => setHover(true)}
       onPointerOut=${() => setHover(false)}
     >
@@ -35,13 +37,15 @@ function Box(props) {
   `;
 }
 
-// Plane component using HTM
-function Plane() {
+// Plane component with physics
+function PhysicsPlane() {
+  const [ref] = usePlane(() => ({
+    rotation: [-Math.PI / 2, 0, 0],
+    position: [0, -1, 0]
+  }));
+
   return html`
-    <mesh
-      rotation=${[-Math.PI / 2, 0, 0]}
-      position=${[0, -1, 0]}
-    >
+    <mesh ref=${ref}>
       <planeGeometry args=${[10, 10]} />
       <meshStandardMaterial color="#303030" />
     </mesh>
@@ -54,8 +58,10 @@ function Scene() {
     <${React.Fragment}>
       <ambientLight intensity=${0.5} />
       <pointLight position=${[10, 10, 10]} />
-      <${Box} position=${[0, 1, 0]} />
-      <${Plane} />
+      <${Physics} gravity=${[0, -9.81, 0]} defaultContactMaterial=${{ restitution: 0.7 }}>
+        <${PhysicsBox} position=${[0, 5, 0]} />
+        <${PhysicsPlane} />
+      </${Physics}>
     </${React.Fragment}>
   `;
 }
@@ -68,8 +74,8 @@ function App() {
         <${Scene} />
       </${Canvas}>
       <div style=${{ position: 'absolute', top: '10px', left: '10px', color: 'white', backgroundColor: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '5px' }}>
-        <h1>R3F ESM Prototype</h1>
-        <p>Click on the box to scale it</p>
+        <h1>R3F ESM Prototype with Physics</h1>
+        <p>Click on the box to apply an impulse</p>
       </div>
     </div>
   `;
