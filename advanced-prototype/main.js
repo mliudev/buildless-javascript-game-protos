@@ -1,13 +1,13 @@
-import React, { useRef, useState } from 'https://esm.sh/react@18.0.0';
-import * as ReactDOMClient from 'https://esm.sh/react-dom@18.0.0/client';
+import React, { useRef, useState } from 'https://esm.sh/react@18.2.0';
+import * as ReactDOMClient from 'https://esm.sh/react-dom@18.2.0/client';
 import * as THREE from 'https://esm.sh/three@0.149.0';
-import { Canvas, useFrame } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.0.0,three@0.149.0';
+import { Canvas, useFrame } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0';
 import htm from 'https://esm.sh/htm@3.1.1';
 
 // Initialize htm with React.createElement
 const html = htm.bind(React.createElement);
 
-// Create a simple box component
+// Box component using direct React.createElement
 function Box(props) {
   const meshRef = useRef();
   const [hovered, setHover] = useState(false);
@@ -20,14 +20,11 @@ function Box(props) {
     }
   });
 
-  // Create a THREE.js vector for position
-  const position = new THREE.Vector3(props.position[0], props.position[1], props.position[2]);
-
   return React.createElement(
     'mesh',
     {
       ref: meshRef,
-      position: position,
+      position: props.position,
       scale: active ? 1.5 : 1,
       onClick: () => setActive(!active),
       onPointerOver: () => setHover(true),
@@ -38,81 +35,49 @@ function Box(props) {
   );
 }
 
-// Create a simple plane component
-function Plane(props) {
-  // Create THREE.js vectors for rotation and position
-  const rotation = new THREE.Euler(-Math.PI / 2, 0, 0);
-  const position = new THREE.Vector3(props.position[0], props.position[1], props.position[2]);
-
+// Plane component using direct React.createElement
+function Plane() {
   return React.createElement(
     'mesh',
     {
-      rotation: rotation,
-      position: position,
-      receiveShadow: true
+      rotation: [-Math.PI / 2, 0, 0],
+      position: [0, -1, 0]
     },
     React.createElement('planeGeometry', { args: [10, 10] }),
     React.createElement('meshStandardMaterial', { color: '#303030' })
   );
 }
 
-// Create the scene component using direct React.createElement
+// Scene component using direct React.createElement
 function Scene() {
-  const spotlightPosition = new THREE.Vector3(10, 10, 10);
-
   return React.createElement(
     React.Fragment,
     null,
     React.createElement('ambientLight', { intensity: 0.5 }),
-    React.createElement('spotLight', {
-      position: spotlightPosition,
-      angle: 0.15,
-      penumbra: 1,
-      castShadow: true
-    }),
+    React.createElement('pointLight', { position: [10, 10, 10] }),
     React.createElement(Box, { position: [0, 1, 0] }),
-    React.createElement(Plane, { position: [0, -1, 0] })
+    React.createElement(Plane)
   );
 }
 
-// Create the canvas component using direct React.createElement
-function ThreeCanvas() {
-  const cameraPosition = new THREE.Vector3(0, 5, 10);
-
-  return React.createElement(
-    Canvas,
-    {
-      shadows: true,
-      camera: {
-        position: cameraPosition,
-        fov: 50
-      }
-    },
-    React.createElement(Scene)
-  );
-}
-
-// Create the info component using HTM
-function Info() {
-  return html`
-    <div className="info">
-      <h1>R3F ESM Prototype</h1>
-      <p>Click on the box to scale it</p>
-    </div>
-  `;
-}
-
-// Create the main app component
+// App component
 function App() {
   return html`
-    <div>
-      <${Info} />
-      <${ThreeCanvas} />
+    <div style=${{ width: '100vw', height: '100vh' }}>
+      ${React.createElement(
+        Canvas,
+        { camera: { position: [0, 5, 10], fov: 50 } },
+        React.createElement(Scene)
+      )}
+      <div style=${{ position: 'absolute', top: '10px', left: '10px', color: 'white' }}>
+        <h1>R3F ESM Prototype</h1>
+        <p>Click on the box to scale it</p>
+      </div>
     </div>
   `;
 }
 
-// Render the app using ReactDOMClient
+// Render the app
 const rootElement = document.getElementById('root');
 const root = ReactDOMClient.createRoot(rootElement);
 root.render(html`<${App} />`);
