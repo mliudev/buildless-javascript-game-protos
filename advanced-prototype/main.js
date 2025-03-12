@@ -7,7 +7,7 @@ import htm from 'https://esm.sh/htm@3.1.1';
 // Initialize htm with React.createElement
 const html = htm.bind(React.createElement);
 
-// Box component using direct React.createElement
+// Box component using HTM (should work)
 function Box(props) {
   const meshRef = useRef();
   const [hovered, setHover] = useState(false);
@@ -20,47 +20,47 @@ function Box(props) {
     }
   });
 
-  return React.createElement(
-    'mesh',
-    {
-      ref: meshRef,
-      position: props.position,
-      scale: active ? 1.5 : 1,
-      onClick: () => setActive(!active),
-      onPointerOver: () => setHover(true),
-      onPointerOut: () => setHover(false)
-    },
-    React.createElement('boxGeometry', { args: [1, 1, 1] }),
-    React.createElement('meshStandardMaterial', { color: hovered ? 'hotpink' : 'orange' })
-  );
+  return html`
+    <mesh
+      ref=${meshRef}
+      position=${props.position}
+      scale=${active ? 1.5 : 1}
+      onClick=${() => setActive(!active)}
+      onPointerOver=${() => setHover(true)}
+      onPointerOut=${() => setHover(false)}
+    >
+      <boxGeometry args=${[1, 1, 1]} />
+      <meshStandardMaterial color=${hovered ? 'hotpink' : 'orange'} />
+    </mesh>
+  `;
 }
 
-// Plane component using direct React.createElement
+// Plane component using HTM
 function Plane() {
-  return React.createElement(
-    'mesh',
-    {
-      rotation: [-Math.PI / 2, 0, 0],
-      position: [0, -1, 0]
-    },
-    React.createElement('planeGeometry', { args: [10, 10] }),
-    React.createElement('meshStandardMaterial', { color: '#303030' })
-  );
+  return html`
+    <mesh
+      rotation=${[-Math.PI / 2, 0, 0]}
+      position=${[0, -1, 0]}
+    >
+      <planeGeometry args=${[10, 10]} />
+      <meshStandardMaterial color="#303030" />
+    </mesh>
+  `;
 }
 
-// Scene component using direct React.createElement
+// Scene component with proper HTM fragment syntax
 function Scene() {
-  return React.createElement(
-    React.Fragment,
-    null,
-    React.createElement('ambientLight', { intensity: 0.5 }),
-    React.createElement('pointLight', { position: [10, 10, 10] }),
-    React.createElement(Box, { position: [0, 1, 0] }),
-    React.createElement(Plane)
-  );
+  return html`
+    <${React.Fragment}>
+      ${React.createElement('ambientLight', { intensity: 0.5 })}
+      ${React.createElement('pointLight', { position: [10, 10, 10] })}
+      <${Box} position=${[0, 1, 0]} />
+      <${Plane} />
+    </${React.Fragment}>
+  `;
 }
 
-// App component
+// Main app component
 function App() {
   return html`
     <div style=${{ width: '100vw', height: '100vh' }}>
@@ -69,7 +69,7 @@ function App() {
         { camera: { position: [0, 5, 10], fov: 50 } },
         React.createElement(Scene)
       )}
-      <div style=${{ position: 'absolute', top: '10px', left: '10px', color: 'white' }}>
+      <div style=${{ position: 'absolute', top: '10px', left: '10px', color: 'white', backgroundColor: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '5px' }}>
         <h1>R3F ESM Prototype</h1>
         <p>Click on the box to scale it</p>
       </div>
