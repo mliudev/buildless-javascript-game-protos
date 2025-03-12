@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimal R3F Example with ESM.sh</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        #info { position: absolute; top: 10px; left: 10px; color: white; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+    <div id="info">Minimal R3F Example with ESM.sh</div>
+
+    <script type="module">
+        // Import dependencies from esm.sh with specific versions
+        import React, { useRef } from 'https://esm.sh/react@18.2.0';
+        import * as ReactDOMClient from 'https://esm.sh/react-dom@18.2.0/client';
+        import * as THREE from 'https://esm.sh/three@0.149.0';
+        import { Canvas, useFrame } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0';
+
+        // Box component
+        function Box(props) {
+            // This reference will give us direct access to the mesh
+            const meshRef = useRef();
+
+            // Subscribe this component to the render-loop, rotate the mesh every frame
+            useFrame((state, delta) => {
+                if (meshRef.current) {
+                    meshRef.current.rotation.x += delta * 0.5;
+                    meshRef.current.rotation.y += delta * 0.5;
+                }
+            });
+
+            return React.createElement(
+                'mesh',
+                { ...props, ref: meshRef },
+                React.createElement('boxGeometry', { args: [1, 1, 1] }),
+                React.createElement('meshStandardMaterial', { color: 'hotpink' })
+            );
+        }
+
+        // App component
+        function App() {
+            return React.createElement(
+                Canvas,
+                {
+                    camera: { position: [0, 0, 5] },
+                    style: { width: '100vw', height: '100vh' }
+                },
+                React.createElement('ambientLight', { intensity: 0.5 }),
+                React.createElement('pointLight', { position: [10, 10, 10] }),
+                React.createElement(Box, { position: [0, 0, 0] })
+            );
+        }
+
+        // Create root and render
+        const root = ReactDOMClient.createRoot(document.getElementById('root'));
+        root.render(React.createElement(App));
+    </script>
+</body>
+</html>
