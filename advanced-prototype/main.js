@@ -48,12 +48,12 @@ function Plane() {
   `;
 }
 
-// Scene component with proper HTM fragment syntax
+// Scene component with wrapper components
 function Scene() {
   return html`
     <${React.Fragment}>
-      ${React.createElement('ambientLight', { intensity: 0.5 })}
-      ${React.createElement('pointLight', { position: [10, 10, 10] })}
+      <ambientLight intensity=${0.5} />
+      <pointLight position=${[10, 10, 10]} />
       <${Box} position=${[0, 1, 0]} />
       <${Plane} />
     </${React.Fragment}>
@@ -64,11 +64,9 @@ function Scene() {
 function App() {
   return html`
     <div style=${{ width: '100vw', height: '100vh' }}>
-      ${React.createElement(
-        Canvas,
-        { camera: { position: [0, 5, 10], fov: 50 } },
-        React.createElement(Scene)
-      )}
+      <${Canvas} camera=${{ position: [0, 5, 10], fov: 50 }}>
+        <${Scene} />
+      </${Canvas}>
       <div style=${{ position: 'absolute', top: '10px', left: '10px', color: 'white', backgroundColor: 'rgba(0,0,0,0.5)', padding: '10px', borderRadius: '5px' }}>
         <h1>R3F ESM Prototype</h1>
         <p>Click on the box to scale it</p>
