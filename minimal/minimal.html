@@ -8,18 +8,31 @@
         body { margin: 0; overflow: hidden; }
         #info { position: absolute; top: 10px; left: 10px; color: white; }
     </style>
+    <!-- Updated import map with explicit external dependencies -->
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.2.0",
+        "react-dom": "https://esm.sh/react-dom@18.2.0",
+        "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+        "three": "https://esm.sh/three@0.149.0",
+        "htm": "https://esm.sh/htm@3.1.1",
+        "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.13.0?external=react,react-dom,three"
+      }
+    }
+    </script>
 </head>
 <body>
     <div id="root"></div>
     <div id="info">Minimal R3F Example with ESM.sh and HTM</div>
 
     <script type="module">
-        // Import dependencies from esm.sh with specific versions
-        import React, { useRef } from 'https://esm.sh/react@18.2.0';
-        import * as ReactDOMClient from 'https://esm.sh/react-dom@18.2.0/client';
-        import * as THREE from 'https://esm.sh/three@0.149.0';
-        import { Canvas, useFrame } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0';
-        import htm from 'https://esm.sh/htm@3.1.1';
+        // Import dependencies using bare specifiers
+        import React, { useRef } from 'react';
+        import * as ReactDOMClient from 'react-dom/client';
+        import * as THREE from 'three';
+        import { Canvas, useFrame } from '@react-three/fiber';
+        import htm from 'htm';
 
         // Initialize htm with React.createElement
         const html = htm.bind(React.createElement);
