@@ -1,5 +1,5 @@
 import React, { useState } from 'https://esm.sh/react@18.2.0';
-import * as ReactDOMClient from 'https://esm.sh/react-dom@18.2.0/client';
+import * as ReactDOMClient from 'https://esm.sh/react-dom@18.2.0/client?deps=react@18.2.0';
 import { Canvas } from 'https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0';
 import { Physics, usePlane, useBox } from 'https://esm.sh/@react-three/cannon@6.5.2?deps=react@18.2.0,three@0.149.0,@react-three/fiber@8.13.0';
 import htm from 'https://esm.sh/htm@3.1.1';
