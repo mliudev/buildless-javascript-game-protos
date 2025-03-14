@@ -6,20 +6,34 @@
     <title>R3F ESM Advanced Prototype</title>
     <link rel="stylesheet" href="styles.css">
     <script type="importmap">
-        {
-            "imports": {
-                "react": "https://esm.sh/react@18.2.0",
-                "react-dom": "https://esm.sh/react-dom@18.2.0",
-                "react-dom/client": "https://esm.sh/react-dom@18.2.0/client?deps=react@18.2.0",
-                "three": "https://esm.sh/three@0.149.0",
-                "three/examples/jsm/controls/OrbitControls": "https://esm.sh/three@0.149.0/examples/jsm/controls/OrbitControls",
-                "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.13.0?deps=react@18.2.0,three@0.149.0",
-                "@react-three/drei": "https://esm.sh/@react-three/drei@9.92.7?deps=react@18.2.0,three@0.149.0,@react-three/fiber@8.13.0",
-                "scheduler": "https://esm.sh/scheduler@0.23.0",
-                "zustand": "https://esm.sh/zustand@4.3.8?deps=react@18.2.0",
-                "suspend-react": "https://esm.sh/suspend-react@0.1.3?deps=react@18.2.0"
-            }
+      {
+        "imports": {
+            "@react-three/a11y": "https://esm.sh/@react-three/a11y@3.0.0?external=react,react-dom,three,@react-three/fiber",
+            "@react-three/cannon": "https://esm.sh/@react-three/cannon@6.6.0?external=react,three,@react-three/fiber",
+            "@react-three/drei": "https://esm.sh/@react-three/drei@9.92.7?external=react,react-dom,three,@react-three/fiber,maath,@use-gesture/react,@react-spring",
+            "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.13.0?external=react,react-dom,three",
+            "@react-three/fiber/": "https://esm.sh/@react-three/fiber@8.13.0&external=react,react-dom,three/",
+            "@react-three/flex": "https://esm.sh/@react-three/flex@1.0.0?external=react,three,@react-three/fiber",
+            "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.19.1?external=react,react-dom,three,@react-three/fiber,maath",
+            "@react-three/rapier": "https://esm.sh/@react-three/rapier@1.5.0?external=react,three,@react-three/fiber",
+            "@react-three/xr": "https://esm.sh/@react-three/xr@6.6.9?external=react,react-dom,three,@react-three/fiber",
+            "@use-gesture/react": "https://esm.sh/@use-gesture/react@10.3.0?external=react",
+            "@use-gesture/react/": "https://esm.sh/@use-gesture/react@10.3.0&external=react/",
+            "framer-motion": "https://esm.sh/framer-motion@12.5.0?external=react,react-dom",
+            "framer-motion/": "https://esm.sh/framer-motion@12.5.0&external=react,react-dom/",
+            "leva": "https://esm.sh/leva@0.10.0?external=react,react-dom,@use-gesture/react",
+            "maath": "https://esm.sh/maath@0.10.8?external=three",
+            "maath/": "https://esm.sh/maath@0.10.8&external=three/",
+            "react": "https://esm.sh/react@18.3.1?dev",
+            "react-dom": "https://esm.sh/react-dom@18.3.1?dev",
+            "react-dom/": "https://esm.sh/react-dom@18.3.1&dev/",
+            "react-spring": "https://esm.sh/react-spring@9.7.3?external=react",
+            "react-spring/": "https://esm.sh/react-spring@9.7.3&external=react/",
+            "react/": "https://esm.sh/react@18.3.1&dev/",
+            "three": "https://esm.sh/three@0.161.0?dev",
+            "three/": "https://esm.sh/three@0.161.0&dev/"
         }
+    }
     </script>
     <script type="module" src="https://esm.sh/tsx"></script>
     <style>
@@ -56,226 +70,208 @@
         import { Stars, Text } from '@react-three/drei';
         import * as THREE from 'three';
         import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
+        import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing';
 
         // Extend OrbitControls as a React component
         extend({ OrbitControls });
 
         // Create a camera controller
         function CameraController() {
-          const { camera, gl } = useThree();
-          const controlsRef = useRef();
+            const { camera, gl } = useThree();
+            const controlsRef = useRef();
 
-          useEffect(() => {
-            const controls = controlsRef.current;
-            if (controls) {
-              controls.minDistance = 3;
-              controls.maxDistance = 20;
-            }
-            return () => {
-              if (controls) {
-                controls.dispose();
-              }
-            };
-          }, []);
+            useEffect(() => {
+                const controls = controlsRef.current;
+                if (controls) {
+                    controls.minDistance = 3;
+                    controls.maxDistance = 20;
+                }
+                return () => {
+                    if (controls) {
+                        controls.dispose();
+                    }
+                };
+            }, []);
 
-          return <orbitControls ref={controlsRef} args={[camera, gl.domElement]} />;
+            return <orbitControls ref={controlsRef} args={[camera, gl.domElement]} />;
         }
 
-        // Create a planet component with fallback textures
-        function Planet({ position, size, texture, color = "#A37D4F", rotationSpeed = 0.005, children }) {
-          const meshRef = useRef();
+        // Create a planet component with colors and emissive glow
+        function Planet({ position, size, color = "#A37D4F", glowColor = "#FFFFFF", glowStrength = 0.2, rotationSpeed = 0.005, children }) {
+            const meshRef = useRef();
 
-          // Updated texture paths to use reliable sources
-          const textureMappings = {
-            "earth_atmos_2048": "https://threejs.org/examples/textures/planets/earth_atmos_2048.jpg",
-            "mars_1k": "https://threejs.org/examples/textures/planets/mars_1k.jpg",
-            "jupiter_1k": "https://threejs.org/examples/textures/planets/jupiter_1k.jpg"
-          };
+            useFrame(() => {
+                if (meshRef.current) {
+                    meshRef.current.rotation.y += rotationSpeed;
+                }
+            });
 
-          const texturePath = textureMappings[texture] || textureMappings["earth_atmos_2048"];
-
-          // Use a try-catch block for texture loading
-          const [planetTexture, setTexture] = useState(null);
-          const [textureError, setTextureError] = useState(false);
-
-          useEffect(() => {
-            const loader = new THREE.TextureLoader();
-            loader.load(
-              texturePath,
-              (loadedTexture) => {
-                setTexture(loadedTexture);
-              },
-              undefined,
-              (error) => {
-                console.error(`Failed to load texture: ${texturePath}`, error);
-                setTextureError(true);
-              }
+            return (
+                <group position={position}>
+                    <mesh ref={meshRef}>
+                        <sphereGeometry args={[size, 64, 64]} />
+                        <meshStandardMaterial
+                            color={color}
+                            emissive={glowColor}
+                            emissiveIntensity={glowStrength}
+                            toneMapped={false}
+                        />
+                    </mesh>
+                    {children}
+                </group>
             );
-          }, [texturePath]);
-
-          useFrame(() => {
-            if (meshRef.current) {
-              meshRef.current.rotation.y += rotationSpeed;
-            }
-          });
-
-          return (
-            <group position={position}>
-              <mesh ref={meshRef}>
-                <sphereGeometry args={[size, 64, 64]} />
-                {planetTexture ? (
-                  <meshStandardMaterial map={planetTexture} />
-                ) : (
-                  <meshStandardMaterial color={color} />
-                )}
-              </mesh>
-              {children}
-            </group>
-          );
         }
 
-        // Create a moon component with fallback texture
+        // Create a moon component with glow
         function Moon({ distance, size, rotationSpeed = 0.01, orbitSpeed = 0.005 }) {
-          const groupRef = useRef();
-          const meshRef = useRef();
-          const texturePath = 'https://threejs.org/examples/textures/planets/moon_1024.jpg';
+            const groupRef = useRef();
+            const meshRef = useRef();
 
-          // Use a try-catch block for texture loading
-          const [moonTexture, setTexture] = useState(null);
+            useFrame(() => {
+                if (groupRef.current) {
+                    groupRef.current.rotation.y += orbitSpeed;
+                }
+                if (meshRef.current) {
+                    meshRef.current.rotation.y += rotationSpeed;
+                }
+            });
 
-          useEffect(() => {
-            const loader = new THREE.TextureLoader();
-            loader.load(
-              texturePath,
-              (loadedTexture) => {
-                setTexture(loadedTexture);
-              },
-              undefined,
-              (error) => {
-                console.error(`Failed to load texture: ${texturePath}`, error);
-              }
+            return (
+                <group ref={groupRef}>
+                    <mesh ref={meshRef} position={[distance, 0, 0]}>
+                        <sphereGeometry args={[size, 32, 32]} />
+                        <meshStandardMaterial
+                            color="#AAAAAA"
+                            emissive="#444444"
+                            emissiveIntensity={0.1}
+                            toneMapped={false}
+                        />
+                    </mesh>
+                </group>
             );
-          }, [texturePath]);
-
-          useFrame(() => {
-            if (groupRef.current) {
-              groupRef.current.rotation.y += orbitSpeed;
-            }
-            if (meshRef.current) {
-              meshRef.current.rotation.y += rotationSpeed;
-            }
-          });
-
-          return (
-            <group ref={groupRef}>
-              <mesh ref={meshRef} position={[distance, 0, 0]}>
-                <sphereGeometry args={[size, 32, 32]} />
-                {moonTexture ? (
-                  <meshStandardMaterial map={moonTexture} />
-                ) : (
-                  <meshStandardMaterial color="#AAAAAA" />
-                )}
-              </mesh>
-            </group>
-          );
         }
 
         // Create a planet with moon
         function EarthWithMoon() {
-          return (
-            <Planet position={[0, 0, 0]} size={1} texture="earth_atmos_2048" rotationSpeed={0.002} color="#2233AA">
-              <Moon distance={2} size={0.27} />
-            </Planet>
-          );
+            return (
+                <Planet
+                    position={[0, 0, 0]}
+                    size={1}
+                    color="#2233AA"
+                    glowColor="#4455FF"
+                    glowStrength={0.3}
+                    rotationSpeed={0.002}
+                >
+                    <Moon distance={2} size={0.27} />
+                </Planet>
+            );
         }
 
         // Loading component
         function LoadingScreen() {
-          return (
-            <mesh position={[0, 0, 0]}>
-              <sphereGeometry args={[0.5, 16, 16]} />
-              <meshStandardMaterial color="white" />
-            </mesh>
-          );
+            return (
+                <mesh position={[0, 0, 0]}>
+                    <sphereGeometry args={[0.5, 16, 16]} />
+                    <meshStandardMaterial color="white" />
+                </mesh>
+            );
         }
 
         // Create the scene component
         function Scene() {
-          return (
-            <>
-              <CameraController />
-              <ambientLight intensity={0.2} />
-              <pointLight position={[10, 10, 10]} intensity={1.5} />
-              <Stars
-                radius={100}
-                depth={50}
-                count={5000}
-                factor={4}
-                saturation={0}
-                fade={true}
-              />
-              <EarthWithMoon />
-              <Planet
-                position={[5, 0, -5]}
-                size={0.6}
-                texture="mars_1k"
-                rotationSpeed={0.003}
-                color="#AA3939"
-              />
-              <Planet
-                position={[-6, 0, -3]}
-                size={1.5}
-                texture="jupiter_1k"
-                rotationSpeed={0.001}
-                color="#A37D4F"
-              />
-              <Text
-                position={[0, 2.5, 0]}
-                color="white"
-                fontSize={0.5}
-                maxWidth={200}
-                lineHeight={1}
-                letterSpacing={0.02}
-                textAlign="center"
-                font="https://fonts.gstatic.com/s/raleway/v14/1Ptrg8zYS_SKggPNwK4vaqI.woff"
-                anchorX="center"
-                anchorY="middle"
-              >
-                R3F ESM Solar System
-              </Text>
-            </>
-          );
+            return (
+                <>
+                    <CameraController />
+                    <ambientLight intensity={0.5} />
+                    <pointLight position={[10, 10, 10]} intensity={2} />
+                    <pointLight position={[-10, -10, -10]} intensity={1} />
+                    <hemisphereLight args={['#ffffff', '#004488', 0.6]} />
+                    <Stars
+                        radius={100}
+                        depth={50}
+                        count={5000}
+                        factor={4}
+                        saturation={0}
+                        fade={true}
+                    />
+                    <EarthWithMoon />
+                    <Planet
+                        position={[5, 0, -5]}
+                        size={0.6}
+                        color="#AA3939"
+                        glowColor="#FF5555"
+                        glowStrength={0.4}
+                        rotationSpeed={0.003}
+                    />
+                    <Planet
+                        position={[-6, 0, -3]}
+                        size={1.5}
+                        color="#A37D4F"
+                        glowColor="#FFAA55"
+                        glowStrength={0.2}
+                        rotationSpeed={0.001}
+                    />
+                    <Text
+                        position={[0, 2.5, 0]}
+                        color="white"
+                        fontSize={0.5}
+                        maxWidth={200}
+                        lineHeight={1}
+                        letterSpacing={0.02}
+                        textAlign="center"
+                        font="https://fonts.gstatic.com/s/raleway/v14/1Ptrg8zYS_SKggPNwK4vaqI.woff"
+                        anchorX="center"
+                        anchorY="middle"
+                    >
+                        R3F ESM Solar System
+                    </Text>
+
+                    {/* Post-processing effects */}
+                    <EffectComposer>
+                        <Bloom
+                            intensity={1.0}
+                            luminanceThreshold={0.2}
+                            luminanceSmoothing={0.9}
+                            height={300}
+                        />
+                        <Vignette
+                            offset={0.5}
+                            darkness={0.5}
+                        />
+                    </EffectComposer>
+                </>
+            );
         }
 
         // Create the canvas component
         function ThreeCanvas() {
-          return (
-            <Canvas camera={{ position: [0, 2, 10], fov: 45 }}>
-              <Suspense fallback={<LoadingScreen />}>
-                <Scene />
-              </Suspense>
-            </Canvas>
-          );
+            return (
+                <Canvas camera={{ position: [0, 2, 10], fov: 45 }}>
+                    <Suspense fallback={<LoadingScreen />}>
+                        <Scene />
+                    </Suspense>
+                </Canvas>
+            );
         }
 
         // Create the info component
         function Info() {
-          return (
-            <div className="info">
-              <h1>R3F ESM Advanced Prototype</h1>
-              <p>Drag to rotate | Scroll to zoom</p>
-            </div>
-          );
+            return (
+                <div className="info">
+                    <h1>R3F ESM Advanced Prototype</h1>
+                    <p>Drag to rotate | Scroll to zoom</p>
+                </div>
+            );
         }
 
         // Create the main app component
         function App() {
-          return (
-            <div style={{ width: '100%', height: '100%' }}>
-              <Info />
-              <ThreeCanvas />
-            </div>
-          );
+            return (
+                <div style={{ width: '100%', height: '100%' }}>
+                    <Info />
+                    <ThreeCanvas />
+                </div>
+            );
         }
 
         // Render the app
