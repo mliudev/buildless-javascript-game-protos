@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sky Hopper - 3D Platformer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+        #score {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            font-size: 24px;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+
+        /* Mobile controls */
+        #mobile-controls {
+            display: none; /* Hidden by default, shown on mobile */
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        .joystick-area {
+            width: 120px;
+            height: 120px;
+            border-radius: 60px;
+            background-color: rgba(255, 255, 255, 0.2);
+            position: relative;
+            touch-action: none;
+        }
+        .joystick-knob {
+            width: 50px;
+            height: 50px;
+            border-radius: 25px;
+            background-color: rgba(255, 255, 255, 0.5);
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            pointer-events: none;
+        }
+        .jump-button {
+            width: 80px;
+            height: 80px;
+            border-radius: 40px;
+            background-color: rgba(255, 255, 255, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: white;
+            touch-action: none;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://esm.sh/three@0.162.0?dev",
+            "three/": "https://esm.sh/three@0.162.0&dev/",
+            "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+            "stats.js": "https://esm.sh/stats.js@0.17.0",
+            "dat.gui": "https://esm.sh/dat.gui@0.7.9"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="game-container">
+        <div id="info">Sky Hopper</div>
+        <div id="score">Score: 0</div>
+        <div id="controls">WASD - Move | SPACE - Jump | Mouse - Look</div>
+
+        <!-- Mobile controls -->
+        <div id="mobile-controls">
+            <div class="joystick-area" id="movement-joystick">
+                <div class="joystick-knob" id="movement-knob"></div>
+            </div>
+            <div class="jump-button" id="jump-button">Jump</div>
+        </div>
+    </div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
