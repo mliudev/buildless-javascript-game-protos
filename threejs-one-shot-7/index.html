@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Forest Explorer</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+        #instructions {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.5);
+            color: white;
+            padding: 10px;
+            font-family: Arial, sans-serif;
+            border-radius: 5px;
+            pointer-events: none;
+        }
+    </style>
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://esm.sh/three@0.160.0?dev",
+            "three/": "https://esm.sh/three@0.160.0&dev/",
+            "htm": "https://esm.sh/htm@3.1.1",
+            "framer-motion": "https://esm.sh/framer-motion@12.5.0?external=react,react-dom",
+            "framer-motion/": "https://esm.sh/framer-motion@12.5.0&external=react,react-dom/",
+            "leva": "https://esm.sh/leva@0.10.0?external=react,react-dom,@use-gesture/react",
+            "maath": "https://esm.sh/maath@0.10.8?external=three",
+            "maath/": "https://esm.sh/maath@0.10.8&external=three/",
+            "postprocessing": "https://esm.sh/postprocessing@6.37.1?dev&external=three",
+            "postprocessing/": "https://esm.sh/postprocessing@6.37.1&dev&external=three/",
+            "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+            "tween.js": "https://esm.sh/@tweenjs/tween.js@21.0.0",
+            "stats.js": "https://esm.sh/stats.js@0.17.0",
+            "dat.gui": "https://esm.sh/dat.gui@0.7.9",
+            "troika-three-text": "https://esm.sh/troika-three-text@0.49.0?external=three",
+            "three-mesh-bvh": "https://esm.sh/three-mesh-bvh@0.7.0?external=three",
+            "rapier3d": "https://esm.sh/@dimforge/rapier3d@0.11.2?external=three",
+            "three-csm": "https://esm.sh/three-csm@4.0.1?external=three",
+            "three-bmfont-text": "https://esm.sh/three-bmfont-text@3.0.1?external=three",
+            "three-pathfinding": "https://esm.sh/three-pathfinding@1.1.0?external=three"
+        }
+    }
+    </script>
+</head>
+<body>
+    <div id="instructions">
+        <h3>Forest Explorer</h3>
+        <p>WASD - Move | MOUSE - Look around | SPACE - Jump</p>
+        <p>Click to start</p>
+    </div>
+    <script type="module" src="main.js"></script>
+</body>
+</html>
