@@ -12,6 +12,11 @@ basic-r3f-jsx - Basic buildless prototype using R3F and JSX
 advanced-r3f-jsx - More R3F libraries with postprocessing using R3F with JSX
 r3f-htm - advanced R3F prototype without using JSX at all
 
+One-shot iteration:
+
+threejs-one-shot-0 - successful 1 shot but with controller issues
+threejs-one-shot-1 - prompt-iteration v1 successful but large generation
+
 ## Key Features
 
 - No build step required
@@ -22,21 +27,14 @@ r3f-htm - advanced R3F prototype without using JSX at all
 ## ESM Import Examples
 
 ```javascript
-// React and ReactDOM
-import React from 'https://esm.sh/react@18.3.1?dev';
-import ReactDOM from 'https://esm.sh/react-dom@18.3.1?dev';
-
-// Three.js
-import * as THREE from 'https://esm.sh/three@0.171.0?dev';
-
-// React Three Fiber
-import { Canvas, useFrame, useThree, extend } from 'https://esm.sh/@react-three/fiber@8.14.5';
-
-// React Three Fiber Physics
-import { Physics, useBox, usePlane } from 'https://esm.sh/@react-three/cannon@6.6.0';
-
-// React Three Fiber Helpers
-import { OrbitControls, Stars, Text, useTexture } from 'https://esm.sh/@react-three/drei@9.92.7';
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
 ```
 
 ## Running the Project
