@@ -4,15 +4,13 @@ A prototype demonstrating how to use Three.js with React Three Fiber (R3F) using
 
 ## Overview
 
-This project demonstrates how to build 3D web applications using React Three Fiber without a build step by leveraging ESM imports directly from CDNs like esm.sh.
+This project demonstrates how to build 3D web applications using React Three Fiber without a build step by leveraging ESM imports directly from CDNs like esm.sh. Some examples use ESM.sh/tsx to transpile JSX.
 
 ## Examples
 
-The prototype includes two examples:
-
-1. **Basic Example** (index.html): A simple physics-based scene with a box and a plane.
-2. **Advanced Example** (advanced.html): A solar system visualization with orbit controls.
-3. **JSX Exampe** (index.html): Basic bouncing box demo that showcases react-three/fiber and react-three/cannon.
+basic-r3f-jsx - Basic buildless prototype using R3F and JSX
+advanced-r3f-jsx - More R3F libraries with postprocessing using R3F with JSX
+r3f-htm - advanced R3F prototype without using JSX at all
 
 ## Key Features
 
@@ -20,7 +18,6 @@ The prototype includes two examples:
 - Direct ESM imports from CDN
 - Physics simulation with @react-three/cannon
 - Orbit controls and advanced 3D objects
-- Responsive design
 
 ## ESM Import Examples
 
@@ -55,9 +52,3 @@ You can run these examples with Python's built-in HTTP server:
 ```bash
 python3 -m http.server 8001
 ```
-
-Then visit:
-
-- <http://localhost:8001/minimal.html> (working example)
-- <http://localhost:8001/minimal-broken.html> (broken example)
-- <http://localhost:8001/minimal-hybrid.html> (hybrid approach)
