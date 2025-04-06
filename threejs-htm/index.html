@@ -3,10 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minimal Three.js Example with ESM.sh</title>
+    <title>Forest Explorer RPG - Three.js</title>
     <style>
         body { margin: 0; overflow: hidden; }
-        #info { position: absolute; top: 10px; left: 10px; color: white; }
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
+        #controls {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            color: white;
+            font-family: 'Arial', sans-serif;
+            background-color: rgba(0, 0, 0, 0.5);
+            padding: 10px;
+            border-radius: 5px;
+        }
     </style>
     <script type="importmap">
     {
@@ -37,37 +56,54 @@
 </head>
 <body>
     <div id="root"></div>
-    <div id="info">Three.js Demo</div>
+    <div id="info">Forest Explorer RPG</div>
+    <div id="controls">
+        WASD - Move | Spacebar - Jump | Mouse - Look Around
+    </div>
 
     <script type="module">
         import * as THREE from 'three';
-        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
         import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
         import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
         import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
         import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
-        import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
-        import { DotScreenShader } from 'three/examples/jsm/shaders/DotScreenShader.js';
-        import { FilmShader } from 'three/examples/jsm/shaders/FilmShader.js';
         import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js';
-        import Stats from 'stats.js';
+        import * as CANNON from 'cannon-es';
         import * as TWEEN from 'tween.js';
+        import Stats from 'stats.js';
         import { GUI } from 'dat.gui';
         import { Text } from 'troika-three-text';
 
-        // Scene setup
+        // Constants
+        const WORLD_SIZE = 100;
+        const GRAVITY = -9.82;
+        const PLAYER_SPEED = 8;
+        const PLAYER_JUMP_FORCE = 7;
+        const PLAYER_HEIGHT = 1.8;
+        const PLAYER_RADIUS = 0.5;
+        const GROUND_LEVEL = 0; // Define ground level explicitly
+        const TREE_COUNT = 50;
+        const ROCK_COUNT = 30;
+
+        // Camera settings
+        const CAMERA_DISTANCE = 5;
+        const CAMERA_HEIGHT = 2;
+
+        // Initialize scene, camera, and renderer
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color('#050520');
-        scene.fog = new THREE.Fog('#050520', 5, 15);
+        scene.background = new THREE.Color('#87CEEB'); // Sky blue
+        scene.fog = new THREE.FogExp2('#87CEEB', 0.01);
 
         // Camera setup
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
-        camera.position.z = 5;
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, CAMERA_HEIGHT, CAMERA_DISTANCE);
 
         // Renderer setup
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         document.getElementById('root').appendChild(renderer.domElement);
 
         // Stats
@@ -75,119 +111,533 @@
         stats.showPanel(0);
         document.body.appendChild(stats.dom);
 
-        // Controls
-        const controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        controls.dampingFactor = 0.05;
-
         // GUI
         const gui = new GUI();
-        const effectsFolder = gui.addFolder('Effects');
+        gui.close(); // Hide by default
         const params = {
-            bloomStrength: 0.5,
-            bloomThreshold: 0.4,
-            bloomRadius: 0.4,
-            chromaticAberration: 0.0005,
-            dotScreenEnabled: false
+            bloomStrength: 0.15,
+            bloomThreshold: 0.5,
+            bloomRadius: 0.2,
+            sunAngle: 0.3,
+            treeDensity: TREE_COUNT,
+            debugPhysics: false
         };
-        effectsFolder.add(params, 'bloomStrength', 0, 3).onChange(updateEffects);
-        effectsFolder.add(params, 'bloomThreshold', 0, 1).onChange(updateEffects);
-        effectsFolder.add(params, 'bloomRadius', 0, 1).onChange(updateEffects);
-        effectsFolder.add(params, 'chromaticAberration', 0, 0.01).onChange(updateEffects);
-        effectsFolder.add(params, 'dotScreenEnabled').onChange(updateEffects);
-        effectsFolder.open();
 
-        // Lighting
-        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
-        scene.add(ambientLight);
+        // Physics world with explicit timestep
+        const world = new CANNON.World({
+            gravity: new CANNON.Vec3(0, GRAVITY, 0)
+        });
+        world.defaultContactMaterial.friction = 0.1;
+        world.defaultContactMaterial.restitution = 0.0;
+        world.solver.iterations = 10; // More solver iterations for stability
+        world.broadphase = new CANNON.SAPBroadphase(world);
+        world.allowSleep = true;
 
-        const pointLight1 = new THREE.PointLight(0xffffff, 2.0);
-        pointLight1.position.set(10, 10, 10);
-        scene.add(pointLight1);
+        // Create physics materials
+        const groundMaterial = new CANNON.Material('ground');
+        const playerMaterial = new CANNON.Material('player');
 
-        const pointLight2 = new THREE.PointLight(0xffffff, 1.0);
-        pointLight2.position.set(-10, -10, -10);
-        scene.add(pointLight2);
+        // Contact material between ground and player
+        const groundPlayerContactMaterial = new CANNON.ContactMaterial(
+            groundMaterial,
+            playerMaterial,
+            {
+                friction: 0.1,
+                restitution: 0.0,
+                contactEquationStiffness: 1e8,
+                contactEquationRelaxation: 3
+            }
+        );
+        world.addContactMaterial(groundPlayerContactMaterial);
 
-        // Stars background
-        function createStars() {
-            const geometry = new THREE.BufferGeometry();
-            const count = 5000;
+        // ====== TEXTURES ======
+        // Use procedural textures instead of external URLs
 
-            const positions = new Float32Array(count * 3);
-            const colors = new Float32Array(count * 3);
+        // Create a noise pattern for the ground
+        function createGroundTexture() {
+            const size = 1024;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
 
-            for (let i = 0; i < positions.length; i += 3) {
-                // Position
-                const radius = 100;
-                const theta = THREE.MathUtils.randFloatSpread(360);
-                const phi = THREE.MathUtils.randFloatSpread(180);
+            // Fill with base color
+            ctx.fillStyle = '#465b3d';
+            ctx.fillRect(0, 0, size, size);
 
-                positions[i] = radius * Math.sin(theta) * Math.cos(phi);
-                positions[i + 1] = radius * Math.sin(theta) * Math.sin(phi);
-                positions[i + 2] = radius * Math.cos(theta);
+            // Add some noise
+            for (let i = 0; i < 50000; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const radius = Math.random() * 2 + 0.5;
 
-                // Color
-                colors[i] = 0.8 + Math.random() * 0.2;
-                colors[i + 1] = 0.8 + Math.random() * 0.2;
-                colors[i + 2] = 0.8 + Math.random() * 0.2;
+                // Vary colors slightly for a natural look
+                const r = Math.floor(Math.random() * 20 + 60);
+                const g = Math.floor(Math.random() * 30 + 90);
+                const b = Math.floor(Math.random() * 20 + 50);
+
+                ctx.beginPath();
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
             }
 
-            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+            // Add some subtle highlights
+            for (let i = 0; i < 5000; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const radius = Math.random() * 2;
 
-            const material = new THREE.PointsMaterial({
-                size: 0.5,
-                vertexColors: true,
-                transparent: true
-            });
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(220, 240, 200, 0.2)';
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
 
-            const stars = new THREE.Points(geometry, material);
-            scene.add(stars);
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+            texture.repeat.set(25, 25);
+            return texture;
         }
 
-        createStars();
+        // Create a bark texture procedurally
+        function createBarkTexture() {
+            const size = 512;
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
 
-        // Create boxes
-        function createBox(position, color) {
-            const geometry = new THREE.BoxGeometry(1, 1, 1);
-            const material = new THREE.MeshStandardMaterial({
-                color: color,
-                metalness: 0.3,
-                roughness: 0.4,
-                emissive: color,
-                emissiveIntensity: 0.2
-            });
+            // Base color
+            ctx.fillStyle = '#6e4e37';
+            ctx.fillRect(0, 0, size, size);
 
-            const mesh = new THREE.Mesh(geometry, material);
-            mesh.position.set(...position);
-            mesh.userData.defaultColor = color;
-            mesh.userData.isHovered = false;
-            scene.add(mesh);
+            // Add bark lines
+            for (let i = 0; i < 80; i++) {
+                const x = Math.random() * size;
+                const y = 0;
+                const width = Math.random() * 8 + 2;
+                const height = size;
 
-            return mesh;
+                // Vary colors for a natural look
+                const r = Math.floor(Math.random() * 40 + 80);
+                const g = Math.floor(Math.random() * 30 + 60);
+                const b = Math.floor(Math.random() * 20 + 40);
+
+                ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                ctx.fillRect(x, y, width, height);
+            }
+
+            // Add some knots and details
+            for (let i = 0; i < 30; i++) {
+                const x = Math.random() * size;
+                const y = Math.random() * size;
+                const radius = Math.random() * 10 + 5;
+
+                const grd = ctx.createRadialGradient(x, y, 0, x, y, radius);
+                grd.addColorStop(0, '#3d2817');
+                grd.addColorStop(1, 'rgba(94, 66, 47, 0)');
+
+                ctx.beginPath();
+                ctx.fillStyle = grd;
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            return new THREE.CanvasTexture(canvas);
         }
 
-        const box1 = createBox([-1.5, 0, 0], '#00aaff');
-        const box2 = createBox([1.5, 0, 0], '#ff55aa');
+        // Create a leaf color texture procedurally
+        function createLeafTexture() {
+            // Just use a solid color with noise for leaves, no texture needed
+            return null;
+        }
 
-        // Text
-        const text = new Text();
-        text.text = 'Three.js Demo';
-        text.fontSize = 0.5;
-        text.position.set(0, 2, 0);
-        text.color = 0xffffff;
-        text.anchorX = 'center';
-        text.anchorY = 'middle';
-        text.font = 'https://fonts.gstatic.com/s/raleway/v14/1Ptrg8zYS_SKggPNwK4vaqI.woff';
-        text.sync(() => scene.add(text));
+        // Create textures
+        const groundBaseColor = createGroundTexture();
+        const barkTexture = createBarkTexture();
+        const leafTexture = createLeafTexture();
 
-        // Post-processing
+        // ====== LIGHTING ======
+        // Ambient light
+        const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+        scene.add(ambientLight);
+
+        // Directional light (sun)
+        const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+        sunLight.position.set(100, 100, 100);
+        sunLight.castShadow = true;
+        sunLight.shadow.mapSize.width = 2048;
+        sunLight.shadow.mapSize.height = 2048;
+        sunLight.shadow.camera.near = 0.5;
+        sunLight.shadow.camera.far = 500;
+        sunLight.shadow.camera.left = -50;
+        sunLight.shadow.camera.right = 50;
+        sunLight.shadow.camera.top = 50;
+        sunLight.shadow.camera.bottom = -50;
+        scene.add(sunLight);
+
+        // ====== TERRAIN ======
+        function createTerrain() {
+            // Create ground geometry
+            const groundGeometry = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 64, 64);
+            groundGeometry.rotateX(-Math.PI / 2);
+
+            // Flat ground with no hills for simplicity
+            const groundMeshMaterial = new THREE.MeshStandardMaterial({
+                map: groundBaseColor,
+                roughness: 0.8,
+                metalness: 0.1,
+            });
+
+            // Create ground mesh exactly at ground level
+            const ground = new THREE.Mesh(groundGeometry, groundMeshMaterial);
+            ground.position.y = GROUND_LEVEL;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Create physics for ground - explicitly at ground level
+            const groundBody = new CANNON.Body({
+                type: CANNON.Body.STATIC,
+                shape: new CANNON.Plane(),
+                material: groundMaterial,
+                position: new CANNON.Vec3(0, GROUND_LEVEL, 0)
+            });
+            groundBody.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+            world.addBody(groundBody);
+
+            return { mesh: ground, body: groundBody };
+        }
+
+        // ====== PLAYER ======
+        function createPlayer() {
+            // Create player mesh
+            const playerGeometry = new THREE.CapsuleGeometry(PLAYER_RADIUS, PLAYER_HEIGHT - PLAYER_RADIUS * 2, 8, 8);
+            const playerMaterial = new THREE.MeshStandardMaterial({
+                color: 0x3366ff,
+                roughness: 0.5,
+                metalness: 0.2,
+            });
+
+            // Create player group
+            const playerGroup = new THREE.Group();
+            scene.add(playerGroup);
+
+            // Add player mesh to group with correct offset
+            const playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
+            playerMesh.castShadow = true;
+            playerMesh.position.y = PLAYER_HEIGHT/2; // Center of capsule
+            playerGroup.add(playerMesh);
+
+            // Create player physics body at GROUND_LEVEL + half height to start
+            const playerBody = new CANNON.Body({
+                mass: 80, // kg
+                material: playerMaterial,
+                position: new CANNON.Vec3(0, GROUND_LEVEL + PLAYER_HEIGHT/2 + 0.1, 0), // Start slightly above ground
+                fixedRotation: true,
+                linearDamping: 0.5,
+                angularDamping: 0.99
+            });
+
+            // Add cylinder shape for main body
+            const cylinderShape = new CANNON.Cylinder(PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_HEIGHT, 8);
+            playerBody.addShape(cylinderShape, new CANNON.Vec3(0, 0, 0));
+            playerBody.shapeOrientations[0].setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
+
+            world.addBody(playerBody);
+
+            // Create debug helper if needed
+            let debugMesh = null;
+            if (params.debugPhysics) {
+                const debugGeometry = new THREE.CylinderGeometry(PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_HEIGHT, 8);
+                const debugMaterial = new THREE.MeshBasicMaterial({
+                    color: 0xff0000,
+                    wireframe: true,
+                    opacity: 0.5,
+                    transparent: true
+                });
+                debugMesh = new THREE.Mesh(debugGeometry, debugMaterial);
+                debugMesh.rotation.x = Math.PI / 2;
+                scene.add(debugMesh);
+            }
+
+            // Player data
+            const playerData = {
+                group: playerGroup,
+                mesh: playerMesh,
+                body: playerBody,
+                debugMesh: debugMesh,
+                velocity: new THREE.Vector3(),
+                direction: new THREE.Vector3(),
+                canJump: false,
+                moveForward: false,
+                moveBackward: false,
+                moveLeft: false,
+                moveRight: false,
+                jump: false,
+                onGround: false,
+
+                // Update ground check with simpler direct distance check
+                checkGroundContact: function() {
+                    // Distance from player center to ground
+                    const distanceToGround = this.body.position.y - GROUND_LEVEL;
+
+                    // Player is on ground if distance is less than half height plus small margin
+                    const isOnGround = distanceToGround <= (PLAYER_HEIGHT/2 + 0.1);
+
+                    this.onGround = isOnGround;
+                    this.canJump = isOnGround;
+
+                    // Prevent sinking by forcing position
+                    const minHeight = GROUND_LEVEL + PLAYER_HEIGHT/2;
+                    if (this.body.position.y < minHeight) {
+                        this.body.position.y = minHeight;
+                        this.body.velocity.y = Math.max(0, this.body.velocity.y);
+                    }
+
+                    return isOnGround;
+                }
+            };
+
+            return playerData;
+        }
+
+        // Create terrain first
+        const terrain = createTerrain();
+
+        // Then create player
+        const player = createPlayer();
+
+        // ====== TREES ======
+        function createTree(position) {
+            // Create trunk
+            const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.4, 2 + Math.random() * 2, 8);
+            const trunkMaterial = new THREE.MeshStandardMaterial({
+                map: barkTexture,
+                roughness: 0.9,
+                metalness: 0.1
+            });
+            const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
+            trunk.position.copy(position);
+            trunk.position.y = trunkGeometry.parameters.height / 2;
+            trunk.castShadow = true;
+            trunk.receiveShadow = true;
+
+            // Create leaves
+            const leavesGeometry = new THREE.SphereGeometry(1 + Math.random() * 0.5, 8, 8);
+
+            // Create a noise-based color variation for leaves
+            const leafColor = new THREE.Color().setHSL(
+                0.3 + Math.random() * 0.1, // green hue with variation
+                0.6 + Math.random() * 0.2, // saturation
+                0.35 + Math.random() * 0.15 // lightness
+            );
+
+            const leavesMaterial = new THREE.MeshStandardMaterial({
+                color: leafColor,
+                roughness: 1,
+                metalness: 0.1,
+                flatShading: true
+            });
+
+            // Add some randomization to the leaf geometry
+            const vertices = leavesGeometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                vertices[i] += (Math.random() - 0.5) * 0.2;
+                vertices[i + 1] += (Math.random() - 0.5) * 0.2;
+                vertices[i + 2] += (Math.random() - 0.5) * 0.2;
+            }
+            leavesGeometry.computeVertexNormals();
+
+            const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
+            leaves.position.y = trunkGeometry.parameters.height;
+            leaves.castShadow = true;
+            leaves.receiveShadow = true;
+            trunk.add(leaves);
+
+            // Create physics for trunk
+            const trunkBody = new CANNON.Body({
+                mass: 0, // Static
+                shape: new CANNON.Cylinder(0.2, 0.4, trunkGeometry.parameters.height, 8),
+                position: new CANNON.Vec3(position.x, trunkGeometry.parameters.height / 2, position.z),
+            });
+            world.addBody(trunkBody);
+
+            scene.add(trunk);
+
+            return { mesh: trunk, body: trunkBody };
+        }
+
+        // Create trees
+        const trees = [];
+        for (let i = 0; i < TREE_COUNT; i++) {
+            // Random position, avoiding the center where the player starts
+            let x, z;
+            do {
+                x = (Math.random() - 0.5) * (WORLD_SIZE - 10);
+                z = (Math.random() - 0.5) * (WORLD_SIZE - 10);
+            } while (Math.sqrt(x * x + z * z) < 10);
+
+            trees.push(createTree(new THREE.Vector3(x, 0, z)));
+        }
+
+        // ====== ROCKS ======
+        function createRock(position) {
+            // Random scale for variety
+            const scale = 0.5 + Math.random() * 1.5;
+
+            // Create rock geometry
+            const rockGeometry = new THREE.SphereGeometry(scale, 6, 6);
+            // Add random deformation for natural look
+            const vertices = rockGeometry.attributes.position.array;
+            for (let i = 0; i < vertices.length; i += 3) {
+                vertices[i] += (Math.random() - 0.5) * 0.3 * scale;
+                vertices[i + 1] += (Math.random() - 0.5) * 0.3 * scale;
+                vertices[i + 2] += (Math.random() - 0.5) * 0.3 * scale;
+            }
+            rockGeometry.computeVertexNormals();
+
+            // Create rock material
+            const rockMaterial = new THREE.MeshStandardMaterial({
+                color: 0x777788,
+                roughness: 0.9,
+                metalness: 0.1,
+            });
+
+            // Create rock mesh
+            const rockMesh = new THREE.Mesh(rockGeometry, rockMaterial);
+            rockMesh.position.copy(position);
+            rockMesh.position.y = scale * 0.5;
+            rockMesh.castShadow = true;
+            rockMesh.receiveShadow = true;
+            scene.add(rockMesh);
+
+            // Create rock physics
+            const rockBody = new CANNON.Body({
+                mass: 0, // Static
+                shape: new CANNON.Sphere(scale * 0.9),
+                position: new CANNON.Vec3(position.x, scale * 0.5, position.z),
+            });
+            world.addBody(rockBody);
+
+            return { mesh: rockMesh, body: rockBody };
+        }
+
+        // Create rocks
+        const rocks = [];
+        for (let i = 0; i < ROCK_COUNT; i++) {
+            // Random position
+            let x, z;
+            do {
+                x = (Math.random() - 0.5) * (WORLD_SIZE - 10);
+                z = (Math.random() - 0.5) * (WORLD_SIZE - 10);
+            } while (Math.sqrt(x * x + z * z) < 10);
+
+            rocks.push(createRock(new THREE.Vector3(x, 0, z)));
+        }
+
+        // ====== CONTROLS ======
+        let pointerLock = false;
+
+        // Camera rotation state
+        const cameraRotation = {
+            horizontal: 0,
+            vertical: 0,
+            // Limit vertical rotation to prevent flipping
+            verticalMin: -Math.PI / 2 + 0.1,
+            verticalMax: Math.PI / 2 - 0.1
+        };
+
+        function setupControls() {
+            document.addEventListener('keydown', (event) => {
+                switch (event.code) {
+                    case 'KeyW':
+                        player.moveForward = true;
+                        break;
+                    case 'KeyS':
+                        player.moveBackward = true;
+                        break;
+                    case 'KeyA':
+                        player.moveLeft = true;
+                        break;
+                    case 'KeyD':
+                        player.moveRight = true;
+                        break;
+                    case 'Space':
+                        player.jump = true;
+                        break;
+                }
+            });
+
+            document.addEventListener('keyup', (event) => {
+                switch (event.code) {
+                    case 'KeyW':
+                        player.moveForward = false;
+                        break;
+                    case 'KeyS':
+                        player.moveBackward = false;
+                        break;
+                    case 'KeyA':
+                        player.moveLeft = false;
+                        break;
+                    case 'KeyD':
+                        player.moveRight = false;
+                        break;
+                    case 'Space':
+                        player.jump = false;
+                        break;
+                }
+            });
+
+            // Mouse look controls with error handling
+            renderer.domElement.addEventListener('click', () => {
+                if (!pointerLock) {
+                    try {
+                        renderer.domElement.requestPointerLock().catch(error => {
+                            console.log('Pointer lock request failed: ', error);
+                        });
+                    } catch (error) {
+                        console.log('Pointer lock error: ', error);
+                    }
+                }
+            });
+
+            document.addEventListener('pointerlockchange', () => {
+                pointerLock = document.pointerLockElement === renderer.domElement;
+            });
+
+            document.addEventListener('pointerlockerror', (event) => {
+                console.log('Pointer lock error:', event);
+            });
+
+            document.addEventListener('mousemove', (event) => {
+                if (pointerLock) {
+                    try {
+                        // Update camera rotation based on mouse movement
+                        cameraRotation.horizontal -= event.movementX * 0.002;
+                        cameraRotation.vertical += event.movementY * 0.002;
+
+                        // Clamp vertical rotation to prevent flipping
+                        cameraRotation.vertical = Math.max(
+                            cameraRotation.verticalMin,
+                            Math.min(cameraRotation.verticalMax, cameraRotation.vertical)
+                        );
+                    } catch (error) {
+                        console.log('Mouse movement error: ', error);
+                    }
+                }
+            });
+        }
+
+        setupControls();
+
+        // ====== POST-PROCESSING ======
+        // Set up effects
         const composer = new EffectComposer(renderer);
-
         const renderPass = new RenderPass(scene, camera);
         composer.addPass(renderPass);
 
+        // Bloom for subtle glow
         const bloomPass = new UnrealBloomPass(
             new THREE.Vector2(window.innerWidth, window.innerHeight),
             params.bloomStrength,
@@ -196,127 +646,161 @@
         );
         composer.addPass(bloomPass);
 
-        const rgbShiftPass = new ShaderPass(RGBShiftShader);
-        if (rgbShiftPass.uniforms && rgbShiftPass.uniforms.amount) {
-            rgbShiftPass.uniforms.amount.value = params.chromaticAberration;
-        }
-        composer.addPass(rgbShiftPass);
-
-        const dotScreenPass = new ShaderPass(DotScreenShader);
-        if (dotScreenPass.uniforms && dotScreenPass.uniforms.scale) {
-            dotScreenPass.uniforms.scale.value = 4.0;
-        }
-        if (dotScreenPass.uniforms && dotScreenPass.uniforms.angle) {
-            dotScreenPass.uniforms.angle.value = Math.PI / 4;
-        }
-        dotScreenPass.enabled = params.dotScreenEnabled;
-        composer.addPass(dotScreenPass);
-
-        const filmPass = new ShaderPass(FilmShader);
-        if (filmPass.uniforms && filmPass.uniforms.nIntensity) {
-            filmPass.uniforms.nIntensity.value = 0.1;
-        }
-        if (filmPass.uniforms && filmPass.uniforms.sIntensity) {
-            filmPass.uniforms.sIntensity.value = 0.0;
-        }
-        composer.addPass(filmPass);
-
+        // Vignette for better focus
         const vignettePass = new ShaderPass(VignetteShader);
         if (vignettePass.uniforms && vignettePass.uniforms.offset) {
             vignettePass.uniforms.offset.value = 0.95;
         }
         if (vignettePass.uniforms && vignettePass.uniforms.darkness) {
-            vignettePass.uniforms.darkness.value = 0.2;
+            vignettePass.uniforms.darkness.value = 0.6;
         }
         composer.addPass(vignettePass);
 
-        function updateEffects() {
-            bloomPass.strength = params.bloomStrength;
-            bloomPass.threshold = params.bloomThreshold;
-            bloomPass.radius = params.bloomRadius;
+        // Add effect parameters to GUI
+        const effectsFolder = gui.addFolder('Effects');
+        effectsFolder.add(params, 'bloomStrength', 0, 3).onChange(value => bloomPass.strength = value);
+        effectsFolder.add(params, 'bloomThreshold', 0, 1).onChange(value => bloomPass.threshold = value);
+        effectsFolder.add(params, 'bloomRadius', 0, 1).onChange(value => bloomPass.radius = value);
 
-            if (rgbShiftPass.uniforms && rgbShiftPass.uniforms.amount) {
-                rgbShiftPass.uniforms.amount.value = params.chromaticAberration;
-            }
+        const worldFolder = gui.addFolder('World');
+        worldFolder.add(params, 'sunAngle', 0, Math.PI / 2).onChange(value => {
+            sunLight.position.x = Math.cos(value) * 100;
+            sunLight.position.y = Math.sin(value) * 100;
+        });
 
-            dotScreenPass.enabled = params.dotScreenEnabled;
-        }
+        // ====== ANIMATION LOOP ======
+        const clock = new THREE.Clock();
+        const fixedTimeStep = 1.0 / 60.0; // for physics
+        let accumulator = 0;
 
-        // Raycaster for interaction
-        const raycaster = new THREE.Raycaster();
-        const mouse = new THREE.Vector2();
+        function updatePhysics(deltaTime) {
+            // Use accumulator for stable physics simulation
+            accumulator += deltaTime;
 
-        function onMouseMove(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-        }
-
-        window.addEventListener('mousemove', onMouseMove);
-
-        // Animation loop
-        function checkIntersections() {
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObjects([box1, box2]);
-
-            // Reset all boxes
-            [box1, box2].forEach(box => {
-                if (box.userData.isHovered && !intersects.find(i => i.object === box)) {
-                    box.userData.isHovered = false;
-                    box.material.color.set(box.userData.defaultColor);
-                    box.material.emissive.set(box.userData.defaultColor);
-
-                    new TWEEN.Tween(box.scale)
-                        .to({ x: 1, y: 1, z: 1 }, 300)
-                        .easing(TWEEN.Easing.Quadratic.Out)
-                        .start();
-                }
-            });
-
-            // Handle hover
-            if (intersects.length > 0) {
-                const object = intersects[0].object;
-                if (!object.userData.isHovered) {
-                    object.userData.isHovered = true;
-                    object.material.color.set('orange');
-                    object.material.emissive.set('orange');
-
-                    new TWEEN.Tween(object.scale)
-                        .to({ x: 1.5, y: 1.5, z: 1.5 }, 300)
-                        .easing(TWEEN.Easing.Quadratic.Out)
-                        .start();
-                }
+            // Update physics with fixed timestep
+            while (accumulator >= fixedTimeStep) {
+                world.step(fixedTimeStep);
+                accumulator -= fixedTimeStep;
             }
         }
 
-        function animate(time) {
+        function updatePlayer(deltaTime) {
+            // Check if player is on ground for jumping
+            player.checkGroundContact();
+
+            // Debugging info
+            document.getElementById('info').innerText =
+                `Forest Explorer RPG | Position: Y=${player.body.position.y.toFixed(2)} | OnGround: ${player.onGround}`;
+
+            // Handle jumping
+            if (player.jump && player.canJump && player.onGround) {
+                player.body.velocity.y = PLAYER_JUMP_FORCE;
+                player.canJump = false;
+                player.jump = false;
+            }
+
+            // Set up movement direction vectors based on camera orientation
+            const cameraForward = new THREE.Vector3(
+                Math.sin(cameraRotation.horizontal),
+                0,
+                Math.cos(cameraRotation.horizontal)
+            ).normalize();
+
+            const cameraRight = new THREE.Vector3(
+                Math.sin(cameraRotation.horizontal + Math.PI/2),
+                0,
+                Math.cos(cameraRotation.horizontal + Math.PI/2)
+            ).normalize();
+
+            // Reset movement direction
+            player.direction.set(0, 0, 0);
+
+            // Apply movement based on key presses
+            if (player.moveForward) player.direction.sub(cameraForward);
+            if (player.moveBackward) player.direction.add(cameraForward);
+            if (player.moveRight) player.direction.add(cameraRight);
+            if (player.moveLeft) player.direction.sub(cameraRight);
+
+            // Normalize movement direction if we have input
+            if (player.direction.lengthSq() > 0) {
+                player.direction.normalize();
+
+                // Apply movement
+                const moveForce = PLAYER_SPEED;
+                player.body.velocity.x = player.direction.x * moveForce;
+                player.body.velocity.z = player.direction.z * moveForce;
+
+                // Rotate the player mesh to face the movement direction
+                const targetRotation = Math.atan2(player.direction.x, player.direction.z);
+                player.group.rotation.y = targetRotation;
+            } else {
+                // Gradually slow down when no input
+                player.body.velocity.x *= 0.9;
+                player.body.velocity.z *= 0.9;
+            }
+
+            // Update visual objects from physics
+            player.group.position.copy(player.body.position);
+
+            // Update debug mesh if it exists
+            if (player.debugMesh) {
+                player.debugMesh.position.copy(player.body.position);
+                player.debugMesh.quaternion.copy(player.body.quaternion);
+            }
+        }
+
+        function updateCamera() {
+            // Calculate ideal camera position based on player position and camera rotation
+            const offsetDistance = CAMERA_DISTANCE;
+            const offsetHeight = CAMERA_HEIGHT;
+
+            // Position camera based on rotation angles (spherical coordinates)
+            const phi = cameraRotation.vertical; // Vertical angle
+            const theta = cameraRotation.horizontal; // Horizontal angle
+
+            // Camera position in local space
+            const cameraLocalOffset = new THREE.Vector3(
+                offsetDistance * Math.sin(theta) * Math.cos(phi),
+                offsetDistance * Math.sin(phi) + offsetHeight,
+                offsetDistance * Math.cos(theta) * Math.cos(phi)
+            );
+
+            // Add player position to get world space
+            const targetPosition = player.group.position.clone();
+            targetPosition.y += 1; // Aim at player's head
+
+            // Set camera position and look at player
+            camera.position.copy(player.group.position).add(cameraLocalOffset);
+            camera.lookAt(targetPosition);
+        }
+
+        function animate() {
             requestAnimationFrame(animate);
 
+            const deltaTime = Math.min(clock.getDelta(), 0.1); // Cap delta time to avoid large jumps
+
+            // Update physics with fixed timestep
+            updatePhysics(deltaTime);
+
+            // Update player
+            updatePlayer(deltaTime);
+
+            // Update camera
+            updateCamera();
+
+            // Update stats
             stats.begin();
 
-            // Update controls
-            controls.update();
-
-            // Update tweens
-            TWEEN.update(time);
-
-            // Rotate boxes
-            box1.rotation.x += 0.01;
-            box1.rotation.y += 0.01;
-            box2.rotation.x += 0.01;
-            box2.rotation.y += 0.01;
-
-            // Check intersections
-            checkIntersections();
-
-            // Render
+            // Render scene
             composer.render();
 
             stats.end();
         }
 
+        // Start animation loop
         animate();
 
-        // Handle resize
+        // ====== WINDOW RESIZE ======
         function onWindowResize() {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
@@ -325,6 +809,18 @@
         }
 
         window.addEventListener('resize', onWindowResize, false);
+
+        // ====== UI ======
+        function createUI() {
+            // Create UI elements using HTML instead of 3D text
+            const infoPanel = document.getElementById('info');
+            infoPanel.innerText = "Forest Explorer RPG";
+
+            const controlsPanel = document.getElementById('controls');
+            controlsPanel.innerText = "WASD - Move | Spacebar - Jump | Mouse - Look Around";
+        }
+
+        createUI();
     </script>
 </body>
 </html>
