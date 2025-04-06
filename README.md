@@ -1,4 +1,4 @@
-# R3F ESM Prototype
+# Buildless JavaScript Game Prototypes
 
 A prototype demonstrating how to use Three.js with React Three Fiber (R3F) using ESM imports directly from CDNs.
 
