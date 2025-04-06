@@ -104,6 +104,7 @@
         renderer.setPixelRatio(window.devicePixelRatio);
         renderer.shadowMap.enabled = true;
         renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        renderer.outputEncoding = THREE.sRGBEncoding;
         document.getElementById('root').appendChild(renderer.domElement);
 
         // Stats
@@ -120,7 +121,8 @@
             bloomRadius: 0.2,
             sunAngle: 0.3,
             treeDensity: TREE_COUNT,
-            debugPhysics: false
+            debugPhysics: false,
+            shadowQuality: 'high'
         };
 
         // Physics world with explicit timestep
@@ -259,7 +261,7 @@
         const leafTexture = createLeafTexture();
 
         // ====== LIGHTING ======
-        // Ambient light
+        // Ambient light for general illumination
         const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
         scene.add(ambientLight);
 
@@ -275,19 +277,22 @@
         sunLight.shadow.camera.right = 50;
         sunLight.shadow.camera.top = 50;
         sunLight.shadow.camera.bottom = -50;
+        sunLight.shadow.bias = -0.0001; // Reduce shadow acne
+        sunLight.shadow.normalBias = 0.01; // Better contact shadows
         scene.add(sunLight);
 
         // ====== TERRAIN ======
-        function createTerrain() {
+        function createGround() {
             // Create ground geometry
             const groundGeometry = new THREE.PlaneGeometry(WORLD_SIZE, WORLD_SIZE, 64, 64);
             groundGeometry.rotateX(-Math.PI / 2);
 
-            // Flat ground with no hills for simplicity
+            // Flat ground with detailed texture
             const groundMeshMaterial = new THREE.MeshStandardMaterial({
                 map: groundBaseColor,
                 roughness: 0.8,
                 metalness: 0.1,
+                color: 0x547c53, // Darker green to add depth
             });
 
             // Create ground mesh exactly at ground level
@@ -311,42 +316,60 @@
 
         // ====== PLAYER ======
         function createPlayer() {
+            // Create the main group that will represent the player
+            const playerGroup = new THREE.Group();
+            scene.add(playerGroup);
+
             // Create player mesh
-            const playerGeometry = new THREE.CapsuleGeometry(PLAYER_RADIUS, PLAYER_HEIGHT - PLAYER_RADIUS * 2, 8, 8);
+            const playerGeometry = new THREE.CylinderGeometry(PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_HEIGHT, 16, 1);
             const playerMaterial = new THREE.MeshStandardMaterial({
                 color: 0x3366ff,
                 roughness: 0.5,
                 metalness: 0.2,
             });
 
-            // Create player group
-            const playerGroup = new THREE.Group();
-            scene.add(playerGroup);
-
-            // Add player mesh to group with correct offset
+            // Create the mesh and add to group
             const playerMesh = new THREE.Mesh(playerGeometry, playerMaterial);
             playerMesh.castShadow = true;
-            playerMesh.position.y = PLAYER_HEIGHT/2; // Center of capsule
+            playerMesh.receiveShadow = true;
+
+            // Position WITHIN the group - making the bottom of cylinder at exactly y=0
+            playerMesh.position.y = PLAYER_HEIGHT / 2;
             playerGroup.add(playerMesh);
 
-            // Create player physics body at GROUND_LEVEL + half height to start
+            // Add a shadow disc at the feet
+            const shadowDisc = new THREE.Mesh(
+                new THREE.CircleGeometry(PLAYER_RADIUS * 0.9, 32),
+                new THREE.MeshBasicMaterial({
+                    color: 0x000000,
+                    transparent: true,
+                    opacity: 0.3,
+                    depthWrite: false,
+                })
+            );
+            shadowDisc.rotation.x = -Math.PI / 2; // Make it flat on the ground
+            shadowDisc.position.y = 0.01; // Tiny bit above ground to avoid z-fighting
+            playerGroup.add(shadowDisc);
+
+            // Make sure the entire player is correctly positioned with bottom at ground level
+            playerGroup.position.y = GROUND_LEVEL;
+
+            // Create physics body
             const playerBody = new CANNON.Body({
                 mass: 80, // kg
+                shape: new CANNON.Cylinder(PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_HEIGHT, 16),
                 material: playerMaterial,
-                position: new CANNON.Vec3(0, GROUND_LEVEL + PLAYER_HEIGHT/2 + 0.1, 0), // Start slightly above ground
+                position: new CANNON.Vec3(0, GROUND_LEVEL + PLAYER_HEIGHT/2, 0),
                 fixedRotation: true,
                 linearDamping: 0.5,
                 angularDamping: 0.99
             });
 
-            // Add cylinder shape for main body
-            const cylinderShape = new CANNON.Cylinder(PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_HEIGHT, 8);
-            playerBody.addShape(cylinderShape, new CANNON.Vec3(0, 0, 0));
+            // Configure physics shape orientation
             playerBody.shapeOrientations[0].setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
-
             world.addBody(playerBody);
 
-            // Create debug helper if needed
+            // Create debug mesh if needed
             let debugMesh = null;
             if (params.debugPhysics) {
                 const debugGeometry = new THREE.CylinderGeometry(PLAYER_RADIUS, PLAYER_RADIUS, PLAYER_HEIGHT, 8);
@@ -377,49 +400,69 @@
                 jump: false,
                 onGround: false,
 
-                // Update ground check with simpler direct distance check
+                // Update ground check
                 checkGroundContact: function() {
-                    // Distance from player center to ground
-                    const distanceToGround = this.body.position.y - GROUND_LEVEL;
+                    // Distance from bottom of player to ground
+                    const bottomY = this.body.position.y - PLAYER_HEIGHT/2;
+                    const distanceToGround = bottomY - GROUND_LEVEL;
 
-                    // Player is on ground if distance is less than half height plus small margin
-                    const isOnGround = distanceToGround <= (PLAYER_HEIGHT/2 + 0.1);
+                    // Player is on ground if bottom is very close to ground level
+                    const isOnGround = distanceToGround < 0.05;
 
                     this.onGround = isOnGround;
                     this.canJump = isOnGround;
 
-                    // Prevent sinking by forcing position
-                    const minHeight = GROUND_LEVEL + PLAYER_HEIGHT/2;
-                    if (this.body.position.y < minHeight) {
-                        this.body.position.y = minHeight;
-                        this.body.velocity.y = Math.max(0, this.body.velocity.y);
+                    // Prevent sinking or floating by forcing exact position when on ground
+                    if (isOnGround && this.body.velocity.y <= 0) {
+                        this.body.position.y = GROUND_LEVEL + PLAYER_HEIGHT/2;
+                        this.body.velocity.y = 0;
                     }
 
                     return isOnGround;
+                },
+
+                // Update the visual representation based on physics body
+                updateVisual: function() {
+                    // Calculate the position where the BOTTOM of the player should be at ground level
+                    const bottomY = this.body.position.y - PLAYER_HEIGHT/2;
+
+                    // Position the group so its origin (which is at the bottom of the player) matches physics
+                    this.group.position.set(
+                        this.body.position.x,
+                        bottomY, // This ensures the bottom of the player is at the correct height
+                        this.body.position.z
+                    );
+
+                    // Rotation
+                    if (this.direction.lengthSq() > 0.1) {
+                        const targetRotation = Math.atan2(this.direction.x, this.direction.z);
+                        this.group.rotation.y = targetRotation;
+                    }
                 }
             };
 
             return playerData;
         }
 
-        // Create terrain first
-        const terrain = createTerrain();
-
-        // Then create player
-        const player = createPlayer();
-
         // ====== TREES ======
         function createTree(position) {
+            // Height variation
+            const trunkHeight = 2 + Math.random() * 2;
+
+            // Ensure the position is at ground level
+            const groundPosition = new THREE.Vector3(position.x, GROUND_LEVEL, position.z);
+
             // Create trunk
-            const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.4, 2 + Math.random() * 2, 8);
+            const trunkGeometry = new THREE.CylinderGeometry(0.2, 0.4, trunkHeight, 8);
             const trunkMaterial = new THREE.MeshStandardMaterial({
                 map: barkTexture,
                 roughness: 0.9,
                 metalness: 0.1
             });
             const trunk = new THREE.Mesh(trunkGeometry, trunkMaterial);
-            trunk.position.copy(position);
-            trunk.position.y = trunkGeometry.parameters.height / 2;
+            trunk.position.copy(groundPosition);
+            // Position trunk so its bottom is exactly on the ground
+            trunk.position.y = GROUND_LEVEL + trunkHeight/2;
             trunk.castShadow = true;
             trunk.receiveShadow = true;
 
@@ -450,17 +493,30 @@
             leavesGeometry.computeVertexNormals();
 
             const leaves = new THREE.Mesh(leavesGeometry, leavesMaterial);
-            leaves.position.y = trunkGeometry.parameters.height;
+            leaves.position.y = trunkHeight - 0.5; // Place leaves at top of trunk
             leaves.castShadow = true;
             leaves.receiveShadow = true;
             trunk.add(leaves);
 
+            // Add a grass/dirt mound at the base for better grounding
+            const moundGeometry = new THREE.CircleGeometry(0.8, 16);
+            const moundMaterial = new THREE.MeshStandardMaterial({
+                color: 0x3d2817,
+                roughness: 1,
+                metalness: 0
+            });
+            const mound = new THREE.Mesh(moundGeometry, moundMaterial);
+            mound.rotation.x = -Math.PI/2; // Rotate to lie flat
+            mound.position.y = 0.01; // Slightly above ground to avoid z-fighting
+            trunk.add(mound);
+
             // Create physics for trunk
             const trunkBody = new CANNON.Body({
                 mass: 0, // Static
-                shape: new CANNON.Cylinder(0.2, 0.4, trunkGeometry.parameters.height, 8),
-                position: new CANNON.Vec3(position.x, trunkGeometry.parameters.height / 2, position.z),
+                shape: new CANNON.Cylinder(0.2, 0.4, trunkHeight, 8),
+                position: new CANNON.Vec3(groundPosition.x, GROUND_LEVEL + trunkHeight/2, groundPosition.z),
             });
+            trunkBody.shapeOrientations[0].setFromAxisAngle(new CANNON.Vec3(1, 0, 0), Math.PI / 2);
             world.addBody(trunkBody);
 
             scene.add(trunk);
@@ -468,23 +524,13 @@
             return { mesh: trunk, body: trunkBody };
         }
 
-        // Create trees
-        const trees = [];
-        for (let i = 0; i < TREE_COUNT; i++) {
-            // Random position, avoiding the center where the player starts
-            let x, z;
-            do {
-                x = (Math.random() - 0.5) * (WORLD_SIZE - 10);
-                z = (Math.random() - 0.5) * (WORLD_SIZE - 10);
-            } while (Math.sqrt(x * x + z * z) < 10);
-
-            trees.push(createTree(new THREE.Vector3(x, 0, z)));
-        }
-
         // ====== ROCKS ======
         function createRock(position) {
             // Random scale for variety
             const scale = 0.5 + Math.random() * 1.5;
+
+            // Ensure the position is at ground level
+            const groundPosition = new THREE.Vector3(position.x, GROUND_LEVEL, position.z);
 
             // Create rock geometry
             const rockGeometry = new THREE.SphereGeometry(scale, 6, 6);
@@ -506,27 +552,60 @@
 
             // Create rock mesh
             const rockMesh = new THREE.Mesh(rockGeometry, rockMaterial);
-            rockMesh.position.copy(position);
-            rockMesh.position.y = scale * 0.5;
+            rockMesh.position.copy(groundPosition);
+            // Position the rock so it's partially embedded in the ground
+            rockMesh.position.y = GROUND_LEVEL + scale * 0.7; // Embed 30% in the ground
             rockMesh.castShadow = true;
             rockMesh.receiveShadow = true;
+
+            // Add a small dirt circle at the base for better grounding
+            const baseGeometry = new THREE.CircleGeometry(scale * 1.1, 16);
+            const baseMaterial = new THREE.MeshStandardMaterial({
+                color: 0x3d2817,
+                roughness: 1,
+                metalness: 0
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.rotation.x = -Math.PI/2; // Rotate to lie flat
+            base.position.y = -scale * 0.7 + 0.02; // Position at the bottom of the rock
+            rockMesh.add(base);
+
             scene.add(rockMesh);
 
             // Create rock physics
             const rockBody = new CANNON.Body({
                 mass: 0, // Static
-                shape: new CANNON.Sphere(scale * 0.9),
-                position: new CANNON.Vec3(position.x, scale * 0.5, position.z),
+                shape: new CANNON.Sphere(scale * 0.8),
+                position: new CANNON.Vec3(groundPosition.x, GROUND_LEVEL + scale * 0.7, groundPosition.z),
             });
             world.addBody(rockBody);
 
             return { mesh: rockMesh, body: rockBody };
         }
 
+        // Create ground first
+        const terrain = createGround();
+
+        // Then create player
+        const player = createPlayer();
+
+        // Create trees
+        const trees = [];
+        for (let i = 0; i < TREE_COUNT; i++) {
+            // Random position, avoiding the center where the player starts
+            let x, z;
+            do {
+                x = (Math.random() - 0.5) * (WORLD_SIZE - 10);
+                z = (Math.random() - 0.5) * (WORLD_SIZE - 10);
+            } while (Math.sqrt(x * x + z * z) < 10);
+
+            trees.push(createTree(new THREE.Vector3(x, 0, z)));
+        }
+
         // Create rocks
         const rocks = [];
         for (let i = 0; i < ROCK_COUNT; i++) {
-            // Random position
+            // Random position, avoiding the center where the player starts
             let x, z;
             do {
                 x = (Math.random() - 0.5) * (WORLD_SIZE - 10);
@@ -690,7 +769,7 @@
 
             // Debugging info
             document.getElementById('info').innerText =
-                `Forest Explorer RPG | Position: Y=${player.body.position.y.toFixed(2)} | OnGround: ${player.onGround}`;
+                `Forest Explorer RPG | Position: Y=${player.body.position.y.toFixed(2)} | Bottom: ${(player.body.position.y - PLAYER_HEIGHT/2).toFixed(2)} | OnGround: ${player.onGround}`;
 
             // Handle jumping
             if (player.jump && player.canJump && player.onGround) {
@@ -729,18 +808,21 @@
                 const moveForce = PLAYER_SPEED;
                 player.body.velocity.x = player.direction.x * moveForce;
                 player.body.velocity.z = player.direction.z * moveForce;
-
-                // Rotate the player mesh to face the movement direction
-                const targetRotation = Math.atan2(player.direction.x, player.direction.z);
-                player.group.rotation.y = targetRotation;
             } else {
                 // Gradually slow down when no input
                 player.body.velocity.x *= 0.9;
                 player.body.velocity.z *= 0.9;
             }
 
+            // Keep player locked to ground when not jumping
+            if (player.onGround && player.body.velocity.y <= 0) {
+                // Lock position to be exactly at ground level + half height
+                player.body.position.y = GROUND_LEVEL + PLAYER_HEIGHT/2;
+                player.body.velocity.y = 0;
+            }
+
             // Update visual objects from physics
-            player.group.position.copy(player.body.position);
+            player.updateVisual();
 
             // Update debug mesh if it exists
             if (player.debugMesh) {
