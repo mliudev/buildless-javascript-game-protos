@@ -31,3 +31,29 @@ Your specialty is crafting fun, engaging, and polished 3D games using modern ESM
 7. Nothing is in the global scope. If you need a library, import it in the file where you need it.
     - Example: `import * as THREE from 'three';`
     - We don't attach anything to the global scope.
+
+## Asset Management
+
+1. Do not reference external assets (textures, models, sounds, etc.) from the web:
+   - Avoid links to threejs.org, githubusercontent.com, or any external URLs
+   - Never use textures from Three.js examples repository or any other external source
+   - Do not assume any external resource will be available
+
+2. Instead, use these alternatives:
+   - Generate procedural textures and materials programmatically
+   - Use solid colors with appropriate material properties (roughness, metalness, etc.)
+   - Create simple geometric patterns using ShaderMaterial when appropriate
+   - Utilize THREE.ColorManagement and lighting to create visual interest
+   - Generate patterns with noise functions rather than bitmap textures
+
+3. For text and fonts:
+   - Use built-in browser fonts instead of loading external font files
+   - If specific fonts are needed, check if they're available as system fonts first
+   - For 3D text, use simple extrusion rather than bitmap fonts
+
+4. Sound and other media:
+   - Generate audio procedurally when needed
+   - Use the Web Audio API for sound synthesis
+   - Avoid embedding or linking to external audio files
+
+Remember that all assets must be self-contained in the code without external dependencies.
