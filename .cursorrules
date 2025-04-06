@@ -57,3 +57,47 @@ Your specialty is crafting fun, engaging, and polished 3D games using modern ESM
    - Avoid embedding or linking to external audio files
 
 Remember that all assets must be self-contained in the code without external dependencies.
+
+## Physics and Character Positioning Rules
+
+1. For all physics-based character controllers:
+   - Always maintain proper alignment between visual meshes and physics bodies
+   - Position objects using their bottom (not center) as the reference point for ground contact
+   - Use separate visual and physics representations with explicit synchronization
+   - Set a clear, explicit GROUND_LEVEL constant and reference it consistently
+
+2. For robust collision detection:
+   - Add visible contact shapes to visualize collision areas
+   - Implement ground checking with a small threshold (0.05-0.1 units)
+   - Force position correction when characters are on the ground
+   - Use fixed timestep physics with accumulator pattern for stability
+
+3. For intuitive controls:
+   - Always test directional movement vectors with both keyboard and mouse rotation
+   - Use camera-relative rather than world-relative movement directions
+   - Apply direct velocity control instead of forces for responsive movement
+   - Include convenience function isOnGround() with a clear implementation
+   - Add debug information showing position, ground state, and controls
+
+## Code Organization
+
+1. Always modularize code by concern:
+   - Physics management in dedicated module
+   - Input handling in dedicated module
+   - Rendering and visual effects in dedicated module
+   - Entity creation (player, terrain) in dedicated modules
+   - Constants and configuration in dedicated module
+   - Main game loop separate from implementation details
+
+2. Avoid global state:
+   - Pass references between modules rather than using globals
+   - Export only what's needed from each module
+   - Create initialization functions that return necessary objects
+
+## Explicit Mobile Support
+
+1. For touch controls:
+   - Create dual thumbstick UI for movement and camera
+   - Detect mobile devices and adjust control scheme
+   - Make touch targets large enough (at least 44x44 pixels)
+   - Use device orientation for camera movement when appropriate
