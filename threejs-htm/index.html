@@ -3,151 +3,328 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Minimal R3F Example with ESM.sh and HTM</title>
+    <title>Minimal Three.js Example with ESM.sh</title>
     <style>
         body { margin: 0; overflow: hidden; }
         #info { position: absolute; top: 10px; left: 10px; color: white; }
     </style>
     <script type="importmap">
     {
-      "imports": {
-            "@react-three/a11y": "https://esm.sh/@react-three/a11y@3.0.0?external=react,react-dom,three,@react-three/fiber",
-            "@react-three/cannon": "https://esm.sh/@react-three/cannon@6.6.0?external=react,three,@react-three/fiber",
-            "@react-three/drei": "https://esm.sh/@react-three/drei@9.92.7?external=react,react-dom,three,@react-three/fiber,maath,@use-gesture/react,@react-spring",
-            "@react-three/fiber": "https://esm.sh/@react-three/fiber@8.13.0?external=react,react-dom,three",
-            "@react-three/fiber/": "https://esm.sh/@react-three/fiber@8.13.0&external=react,react-dom,three/",
-            "@react-three/flex": "https://esm.sh/@react-three/flex@1.0.0?external=react,three,@react-three/fiber",
-            "@react-three/postprocessing": "https://esm.sh/@react-three/postprocessing@2.19.1?external=react,react-dom,three,@react-three/fiber,maath",
-            "@react-three/rapier": "https://esm.sh/@react-three/rapier@1.5.0?external=react,three,@react-three/fiber",
-            "@react-three/xr": "https://esm.sh/@react-three/xr@6.6.9?external=react,react-dom,three,@react-three/fiber",
-            "@use-gesture/react": "https://esm.sh/@use-gesture/react@10.3.0?external=react",
-            "@use-gesture/react/": "https://esm.sh/@use-gesture/react@10.3.0&external=react/",
+        "imports": {
+            "three": "https://esm.sh/three@0.162.0?dev",
+            "three/": "https://esm.sh/three@0.162.0&dev/",
+            "htm": "https://esm.sh/htm@3.1.1",
             "framer-motion": "https://esm.sh/framer-motion@12.5.0?external=react,react-dom",
             "framer-motion/": "https://esm.sh/framer-motion@12.5.0&external=react,react-dom/",
             "leva": "https://esm.sh/leva@0.10.0?external=react,react-dom,@use-gesture/react",
             "maath": "https://esm.sh/maath@0.10.8?external=three",
             "maath/": "https://esm.sh/maath@0.10.8&external=three/",
-            "react": "https://esm.sh/react@18.3.1?dev",
-            "react-dom": "https://esm.sh/react-dom@18.3.1?dev",
-            "react-dom/": "https://esm.sh/react-dom@18.3.1&dev/",
-            "react-spring": "https://esm.sh/react-spring@9.7.3?external=react",
-            "react-spring/": "https://esm.sh/react-spring@9.7.3&external=react/",
-            "react/": "https://esm.sh/react@18.3.1&dev/",
-            "three": "https://esm.sh/three@0.161.0?dev",
-            "three/": "https://esm.sh/three@0.161.0&dev/",
-            "htm": "https://esm.sh/htm@3.1.1",
             "postprocessing": "https://esm.sh/postprocessing@6.37.1?dev&external=three",
-            "postprocessing/": "https://esm.sh/postprocessing@6.37.1&dev&external=three/"
+            "postprocessing/": "https://esm.sh/postprocessing@6.37.1&dev&external=three/",
+            "cannon-es": "https://esm.sh/cannon-es@0.20.0",
+            "tween.js": "https://esm.sh/@tweenjs/tween.js@21.0.0",
+            "stats.js": "https://esm.sh/stats.js@0.17.0",
+            "dat.gui": "https://esm.sh/dat.gui@0.7.9",
+            "troika-three-text": "https://esm.sh/troika-three-text@0.49.0?external=three",
+            "three-mesh-bvh": "https://esm.sh/three-mesh-bvh@0.7.0?external=three",
+            "rapier3d": "https://esm.sh/@dimforge/rapier3d@0.11.2?external=three",
+            "three-csm": "https://esm.sh/three-csm@4.0.1?external=three",
+            "three-bmfont-text": "https://esm.sh/three-bmfont-text@3.0.1?external=three",
+            "three-pathfinding": "https://esm.sh/three-pathfinding@1.1.0?external=three"
       }
     }
     </script>
 </head>
 <body>
     <div id="root"></div>
-    <div id="info">Minimal R3F Example with ESM.sh and HTM</div>
+    <div id="info">Three.js Demo</div>
 
     <script type="module">
-        import React, { useRef, useState } from 'react';
-        import * as ReactDOMClient from 'react-dom/client';
         import * as THREE from 'three';
-        import { Canvas, useFrame } from '@react-three/fiber';
-        import htm from 'htm';
-        import { OrbitControls, Stars, Text } from '@react-three/drei';
-        import { EffectComposer, Bloom, ChromaticAberration, DotScreen, Noise, Vignette } from '@react-three/postprocessing';
-        import { BlendFunction } from 'postprocessing';
+        import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+        import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+        import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+        import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+        import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
+        import { RGBShiftShader } from 'three/examples/jsm/shaders/RGBShiftShader.js';
+        import { DotScreenShader } from 'three/examples/jsm/shaders/DotScreenShader.js';
+        import { FilmShader } from 'three/examples/jsm/shaders/FilmShader.js';
+        import { VignetteShader } from 'three/examples/jsm/shaders/VignetteShader.js';
+        import Stats from 'stats.js';
+        import * as TWEEN from 'tween.js';
+        import { GUI } from 'dat.gui';
+        import { Text } from 'troika-three-text';
 
-        // Initialize htm with React.createElement
-        const html = htm.bind(React.createElement);
+        // Scene setup
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color('#050520');
+        scene.fog = new THREE.Fog('#050520', 5, 15);
 
-        function Box(props) {
-            const meshRef = useRef();
-            const [hovered, setHovered] = useState(false);
+        // Camera setup
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+        camera.position.z = 5;
 
-            useFrame((state, delta) => {
-                if (meshRef.current) {
-                    meshRef.current.rotation.x += delta * 0.5;
-                    meshRef.current.rotation.y += delta * 0.5;
-                    meshRef.current.scale.x = meshRef.current.scale.y = meshRef.current.scale.z =
-                        THREE.MathUtils.lerp(meshRef.current.scale.x, hovered ? 1.5 : 1, 0.1);
+        // Renderer setup
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        document.getElementById('root').appendChild(renderer.domElement);
+
+        // Stats
+        const stats = new Stats();
+        stats.showPanel(0);
+        document.body.appendChild(stats.dom);
+
+        // Controls
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // GUI
+        const gui = new GUI();
+        const effectsFolder = gui.addFolder('Effects');
+        const params = {
+            bloomStrength: 0.5,
+            bloomThreshold: 0.4,
+            bloomRadius: 0.4,
+            chromaticAberration: 0.0005,
+            dotScreenEnabled: false
+        };
+        effectsFolder.add(params, 'bloomStrength', 0, 3).onChange(updateEffects);
+        effectsFolder.add(params, 'bloomThreshold', 0, 1).onChange(updateEffects);
+        effectsFolder.add(params, 'bloomRadius', 0, 1).onChange(updateEffects);
+        effectsFolder.add(params, 'chromaticAberration', 0, 0.01).onChange(updateEffects);
+        effectsFolder.add(params, 'dotScreenEnabled').onChange(updateEffects);
+        effectsFolder.open();
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(0xffffff, 2.0);
+        pointLight1.position.set(10, 10, 10);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xffffff, 1.0);
+        pointLight2.position.set(-10, -10, -10);
+        scene.add(pointLight2);
+
+        // Stars background
+        function createStars() {
+            const geometry = new THREE.BufferGeometry();
+            const count = 5000;
+
+            const positions = new Float32Array(count * 3);
+            const colors = new Float32Array(count * 3);
+
+            for (let i = 0; i < positions.length; i += 3) {
+                // Position
+                const radius = 100;
+                const theta = THREE.MathUtils.randFloatSpread(360);
+                const phi = THREE.MathUtils.randFloatSpread(180);
+
+                positions[i] = radius * Math.sin(theta) * Math.cos(phi);
+                positions[i + 1] = radius * Math.sin(theta) * Math.sin(phi);
+                positions[i + 2] = radius * Math.cos(theta);
+
+                // Color
+                colors[i] = 0.8 + Math.random() * 0.2;
+                colors[i + 1] = 0.8 + Math.random() * 0.2;
+                colors[i + 2] = 0.8 + Math.random() * 0.2;
+            }
+
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.PointsMaterial({
+                size: 0.5,
+                vertexColors: true,
+                transparent: true
+            });
+
+            const stars = new THREE.Points(geometry, material);
+            scene.add(stars);
+        }
+
+        createStars();
+
+        // Create boxes
+        function createBox(position, color) {
+            const geometry = new THREE.BoxGeometry(1, 1, 1);
+            const material = new THREE.MeshStandardMaterial({
+                color: color,
+                metalness: 0.3,
+                roughness: 0.4,
+                emissive: color,
+                emissiveIntensity: 0.2
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.position.set(...position);
+            mesh.userData.defaultColor = color;
+            mesh.userData.isHovered = false;
+            scene.add(mesh);
+
+            return mesh;
+        }
+
+        const box1 = createBox([-1.5, 0, 0], '#00aaff');
+        const box2 = createBox([1.5, 0, 0], '#ff55aa');
+
+        // Text
+        const text = new Text();
+        text.text = 'Three.js Demo';
+        text.fontSize = 0.5;
+        text.position.set(0, 2, 0);
+        text.color = 0xffffff;
+        text.anchorX = 'center';
+        text.anchorY = 'middle';
+        text.font = 'https://fonts.gstatic.com/s/raleway/v14/1Ptrg8zYS_SKggPNwK4vaqI.woff';
+        text.sync(() => scene.add(text));
+
+        // Post-processing
+        const composer = new EffectComposer(renderer);
+
+        const renderPass = new RenderPass(scene, camera);
+        composer.addPass(renderPass);
+
+        const bloomPass = new UnrealBloomPass(
+            new THREE.Vector2(window.innerWidth, window.innerHeight),
+            params.bloomStrength,
+            params.bloomRadius,
+            params.bloomThreshold
+        );
+        composer.addPass(bloomPass);
+
+        const rgbShiftPass = new ShaderPass(RGBShiftShader);
+        if (rgbShiftPass.uniforms && rgbShiftPass.uniforms.amount) {
+            rgbShiftPass.uniforms.amount.value = params.chromaticAberration;
+        }
+        composer.addPass(rgbShiftPass);
+
+        const dotScreenPass = new ShaderPass(DotScreenShader);
+        if (dotScreenPass.uniforms && dotScreenPass.uniforms.scale) {
+            dotScreenPass.uniforms.scale.value = 4.0;
+        }
+        if (dotScreenPass.uniforms && dotScreenPass.uniforms.angle) {
+            dotScreenPass.uniforms.angle.value = Math.PI / 4;
+        }
+        dotScreenPass.enabled = params.dotScreenEnabled;
+        composer.addPass(dotScreenPass);
+
+        const filmPass = new ShaderPass(FilmShader);
+        if (filmPass.uniforms && filmPass.uniforms.nIntensity) {
+            filmPass.uniforms.nIntensity.value = 0.1;
+        }
+        if (filmPass.uniforms && filmPass.uniforms.sIntensity) {
+            filmPass.uniforms.sIntensity.value = 0.0;
+        }
+        composer.addPass(filmPass);
+
+        const vignettePass = new ShaderPass(VignetteShader);
+        if (vignettePass.uniforms && vignettePass.uniforms.offset) {
+            vignettePass.uniforms.offset.value = 0.95;
+        }
+        if (vignettePass.uniforms && vignettePass.uniforms.darkness) {
+            vignettePass.uniforms.darkness.value = 0.2;
+        }
+        composer.addPass(vignettePass);
+
+        function updateEffects() {
+            bloomPass.strength = params.bloomStrength;
+            bloomPass.threshold = params.bloomThreshold;
+            bloomPass.radius = params.bloomRadius;
+
+            if (rgbShiftPass.uniforms && rgbShiftPass.uniforms.amount) {
+                rgbShiftPass.uniforms.amount.value = params.chromaticAberration;
+            }
+
+            dotScreenPass.enabled = params.dotScreenEnabled;
+        }
+
+        // Raycaster for interaction
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        window.addEventListener('mousemove', onMouseMove);
+
+        // Animation loop
+        function checkIntersections() {
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects([box1, box2]);
+
+            // Reset all boxes
+            [box1, box2].forEach(box => {
+                if (box.userData.isHovered && !intersects.find(i => i.object === box)) {
+                    box.userData.isHovered = false;
+                    box.material.color.set(box.userData.defaultColor);
+                    box.material.emissive.set(box.userData.defaultColor);
+
+                    new TWEEN.Tween(box.scale)
+                        .to({ x: 1, y: 1, z: 1 }, 300)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .start();
                 }
             });
 
-            return html`
-                <mesh
-                    ref=${meshRef}
-                    position=${props.position || [0, 0, 0]}
-                    onPointerOver=${() => setHovered(true)}
-                    onPointerOut=${() => setHovered(false)}
-                >
-                    <boxGeometry args=${[1, 1, 1]} />
-                    <meshStandardMaterial
-                        color=${hovered ? 'orange' : props.color || 'hotpink'}
-                        metalness=${0.1}
-                        roughness=${0.1}
-                        emissive=${hovered ? 'orange' : props.color || 'hotpink'}
-                        emissiveIntensity=${0.5}
-                    />
-                </mesh>
-            `;
+            // Handle hover
+            if (intersects.length > 0) {
+                const object = intersects[0].object;
+                if (!object.userData.isHovered) {
+                    object.userData.isHovered = true;
+                    object.material.color.set('orange');
+                    object.material.emissive.set('orange');
+
+                    new TWEEN.Tween(object.scale)
+                        .to({ x: 1.5, y: 1.5, z: 1.5 }, 300)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .start();
+                }
+            }
         }
 
-        function App() {
-            return html`
-                <${Canvas}
-                    camera=${{ position: [0, 0, 5] }}
-                    style=${{ width: '100vw', height: '100vh' }}
-                >
-                    <color attach="background" args=${['#000020']} />
-                    <fog attach="fog" args=${['#000020', 5, 15]} />
+        function animate(time) {
+            requestAnimationFrame(animate);
 
-                    <${Stars} radius=${100} depth=${50} count=${5000} factor=${4} />
+            stats.begin();
 
-                    <ambientLight intensity=${1.0} />
-                    <pointLight position=${[10, 10, 10]} intensity=${2.0} />
-                    <pointLight position=${[-10, -10, -10]} intensity=${1.0} />
+            // Update controls
+            controls.update();
 
-                    <${Box} position=${[-1.5, 0, 0]} color="cyan" />
-                    <${Box} position=${[1.5, 0, 0]} color="magenta" />
+            // Update tweens
+            TWEEN.update(time);
 
-                    <${Text}
-                        position=${[0, 2, 0]}
-                        fontSize=${0.5}
-                        color="white"
-                    >
-                        R3F Demo
-                    </${Text}>
+            // Rotate boxes
+            box1.rotation.x += 0.01;
+            box1.rotation.y += 0.01;
+            box2.rotation.x += 0.01;
+            box2.rotation.y += 0.01;
 
-                    <${OrbitControls} />
+            // Check intersections
+            checkIntersections();
 
-                    <${EffectComposer}>
-                        <${Bloom}
-                            intensity=${1.5}
-                            luminanceThreshold=${0.2}
-                            luminanceSmoothing=${0.9}
-                        />
-                        <${ChromaticAberration}
-                            offset=${[0.002, 0.002]}
-                        />
-                        <${DotScreen}
-                            angle=${Math.PI / 4}
-                            scale=${1}
-                            blendFunction=${BlendFunction.OVERLAY}
-                        />
-                        <${Noise}
-                            premultiply
-                            blendFunction=${BlendFunction.SOFT_LIGHT}
-                        />
-                        <${Vignette}
-                            offset=${0.5}
-                            darkness=${0.5}
-                        />
-                    </${EffectComposer}>
-                </${Canvas}>
-            `;
+            // Render
+            composer.render();
+
+            stats.end();
         }
 
-        const root = ReactDOMClient.createRoot(document.getElementById('root'));
-        root.render(html`<${App} />`);
+        animate();
+
+        // Handle resize
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            composer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.addEventListener('resize', onWindowResize, false);
     </script>
 </body>
 </html>
