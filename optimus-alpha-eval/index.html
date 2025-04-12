@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dune-Inspired Three.js Game</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #222; }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: #fff;
+      font-family: sans-serif;
+      background: rgba(0,0,0,0.4);
+      padding: 8px 16px;
+      border-radius: 8px;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">Use arrow keys to fly! Avoid the sandworm!</div>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <script>
+    // Scene setup
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0xe2c290);
+
+    // Camera
+    const camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    );
+    camera.position.set(0, 10, 20);
+
+    // Renderer
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Light
+    const light = new THREE.DirectionalLight(0xffffff, 1);
+    light.position.set(10, 20, 10);
+    scene.add(light);
+
+    // Desert ground (dunes)
+    const groundGeometry = new THREE.PlaneGeometry(100, 100, 32, 32);
+    // Add some dune-like bumps
+    for (let i = 0; i < groundGeometry.attributes.position.count; i++) {
+      const x = groundGeometry.attributes.position.getX(i);
+      const y = groundGeometry.attributes.position.getY(i);
+      // Simple sine/cosine based dunes
+      const z = Math.sin(x * 0.2) * Math.cos(y * 0.2) * 2 + Math.random() * 0.5;
+      groundGeometry.attributes.position.setZ(i, z);
+    }
+    groundGeometry.computeVertexNormals();
+    const groundMaterial = new THREE.MeshLambertMaterial({
+      color: 0xe2c290,
+      side: THREE.DoubleSide,
+      flatShading: true
+    });
+    const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+
+    // Ornithopter (player)
+    const ornithopterGeometry = new THREE.BoxGeometry(1, 0.5, 2);
+    const ornithopterMaterial = new THREE.MeshLambertMaterial({ color: 0x3333ff });
+    const ornithopter = new THREE.Mesh(ornithopterGeometry, ornithopterMaterial);
+    ornithopter.position.set(0, 2, 0);
+    scene.add(ornithopter);
+
+    // Add simple wings to ornithopter
+    const wingGeometry = new THREE.BoxGeometry(3, 0.1, 0.3);
+    const wingMaterial = new THREE.MeshLambertMaterial({ color: 0x8888ff });
+    const leftWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    leftWing.position.set(0, 0.3, 0.7);
+    ornithopter.add(leftWing);
+    const rightWing = new THREE.Mesh(wingGeometry, wingMaterial);
+    rightWing.position.set(0, 0.3, -0.7);
+    ornithopter.add(rightWing);
+
+    // Sandworm (enemy)
+    const wormGeometry = new THREE.CylinderGeometry(0.5, 1, 6, 16);
+    const wormMaterial = new THREE.MeshLambertMaterial({ color: 0x996633 });
+    const sandworm = new THREE.Mesh(wormGeometry, wormMaterial);
+    sandworm.rotation.z = Math.PI / 2;
+    sandworm.position.set(-10, 1, 0);
+    scene.add(sandworm);
+
+    // Controls
+    let moveLeft = false, moveRight = false, moveForward = false, moveBackward = false;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft') moveLeft = true;
+      if (e.key === 'ArrowRight') moveRight = true;
+      if (e.key === 'ArrowUp') moveForward = true;
+      if (e.key === 'ArrowDown') moveBackward = true;
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft') moveLeft = false;
+      if (e.key === 'ArrowRight') moveRight = false;
+      if (e.key === 'ArrowUp') moveForward = false;
+      if (e.key === 'ArrowDown') moveBackward = false;
+    });
+
+    // Game state
+    let gameOver = false;
+
+    // Animation loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      if (!gameOver) {
+        // Ornithopter movement
+        let speed = 0.25;
+        if (moveLeft) ornithopter.position.x -= speed;
+        if (moveRight) ornithopter.position.x += speed;
+        if (moveForward) ornithopter.position.z -= speed;
+        if (moveBackward) ornithopter.position.z += speed;
+
+        // Keep ornithopter above ground
+        ornithopter.position.y = 2 + Math.sin(Date.now() * 0.005) * 0.2;
+
+        // Sandworm AI: chase the ornithopter
+        let dx = ornithopter.position.x - sandworm.position.x;
+        let dz = ornithopter.position.z - sandworm.position.z;
+        let dist = Math.sqrt(dx * dx + dz * dz);
+        if (dist > 0.5) {
+          sandworm.position.x += (dx / dist) * 0.08;
+          sandworm.position.z += (dz / dist) * 0.08;
+        }
+        sandworm.position.y = 1 + Math.sin(Date.now() * 0.002 + sandworm.position.x) * 0.5;
+
+        // Collision detection
+        if (dist < 2) {
+          document.getElementById('info').innerText = "Game Over! The sandworm got you!";
+          gameOver = true;
+        }
+      }
+
+      // Camera follows ornithopter
+      camera.position.x = ornithopter.position.x;
+      camera.position.z = ornithopter.position.z + 20;
+      camera.lookAt(
+        ornithopter.position.x,
+        ornithopter.position.y,
+        ornithopter.position.z
+      );
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    // Responsive resize
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+  </script>
+</body>
+</html>
